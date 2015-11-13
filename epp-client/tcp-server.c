@@ -89,13 +89,30 @@ void established_connection(int sock)
 	int n;
 	char buffer[256];
 
+	union {
+		uint32_t whole;
+		char bytes[4];
+	} msg_length;
+
+	n = recv(sock, msg_length.bytes, 4, MSG_WAITALL);
+	if (n != 4)
+	{
+		error("recv");
+	}
+	msg_length.whole = ntohl(msg_length.whole);
+	uint32_t msg_data_length = msg_length.whole - 4;
+
+	printf("Message octets: %d %d %d %d\n", msg_length.bytes[0], msg_length.bytes[1], msg_length.bytes[2], msg_length.bytes[3]);
+	printf("Message length: %u\n", msg_length);
+	printf("Message data length: %u\n", msg_data_length);
+
 	bzero(buffer, 256);
 	n = read(sock, buffer, 255);
 	if (n < 0)
 	{
 		error("read");
 	}
-	printf("Message: %s", buffer);
+	printf("Message: %s\n", buffer);
 
 	char ack_msg[] = "Message received.\n";
 
