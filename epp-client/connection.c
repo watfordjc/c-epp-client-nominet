@@ -25,16 +25,16 @@
 	LOG_LEVEL: integer between 0 and 9 for setting GnuTLS log level.
 	COMMENTS: uncomment to enable more verbose commenting for debugging purposes.
 */
-char BIND_ADDR[INET6_ADDRSTRLEN] = "::ffff:82.26.77.204";
-char BIND_ADDR6[INET6_ADDRSTRLEN] = "2001:470:1f09:1aab::80:d";
-char * EPP_HOSTNAME = "webmail.thejc.me.uk";
-char EPP_TLS_PORT[5] = "443";
-char * EPP_TLS_CAFILE = "/etc/ssl/certs/StartCom_Certification_Authority.pem";
+char *BIND_ADDR = "::ffff:82.26.77.204";
+char *BIND_ADDR6 = "2001:470:1f09:1aab::80:d";
+char *EPP_HOSTNAME = "webmail.thejc.me.uk";
+char *EPP_TLS_PORT = "443";
+char *EPP_TLS_CAFILE = "/etc/ssl/certs/StartCom_Certification_Authority.pem";
 //#char * EPP_TLS_CAFILE = "/etc/ssl/certs/Verisign_Class_3_Public_Primary_Certification_Authority.pem";
-char * EPP_TLS_CIPHERS = "PFS";
-char * MSG = "GET / HTTP/1.0\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n";
 const char LOG_LEVEL = 0;
 //#define COMMENTS
+char *EPP_TLS_CIPHERS = "PFS";
+char *MSG = "GET / HTTP/1.1\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n";
 
 void error_exit(const char *msg);
 ssize_t data_push(gnutls_transport_ptr_t, const void*, size_t);
