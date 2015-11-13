@@ -44,7 +44,10 @@ int main(int argc, char *argv[])
 	inet_pton(AF_INET6, BIND_IP, &server_addr.sin6_addr);
 
 	int optval = 1;
-	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
+	{
+		error("setsockopt");
+	}
 
 	if (bind(sock_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0)
 	{
@@ -57,10 +60,25 @@ int main(int argc, char *argv[])
 
 	while (1)
 	{
+		struct timeval timeout_recv;
+		timeout_recv.tv_sec = 5;
+		timeout_recv.tv_usec = 0;
+		struct timeval timeout_send;
+		timeout_send.tv_sec = 90;
+		timeout_send.tv_usec = 0;
+
 		newsock_fd = accept(sock_fd, (struct sockaddr *) &client_addr, &client_addr_len);
 		if (newsock_fd < 0)
 		{
 			error("accept");
+		}
+		if (setsockopt(newsock_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout_recv, sizeof(timeout_recv)) < 0)
+		{
+			error("setsockopt");
+		}
+		if (setsockopt(newsock_fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout_send, sizeof(timeout_send)) < 0)
+		{
+			error("setsockopt");
 		}
 		pid = fork();
 		if (pid < 0)
