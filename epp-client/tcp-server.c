@@ -86,33 +86,100 @@ int main(int argc, char *argv[])
  * Instead, all processing within a client connection is handled within established_connection(). */
 void established_connection(int sock)
 {
-	int n;
-	char buffer[256];
+	uint32_t buffer_size = 256;
+	uint32_t header_size = 4;
+
+	uint32_t buffer_size_chars = buffer_size - 1;
+
+	uint32_t msg_data_length, position, remaining_chars = 0;
+	char buffer[buffer_size], temp[buffer_size];
+	int n = 0;
 
 	union {
 		uint32_t whole;
-		char bytes[4];
+		char bytes[header_size];
 	} msg_length;
 
-	n = recv(sock, msg_length.bytes, 4, MSG_WAITALL);
-	if (n != 4)
+	bzero((char *) buffer, buffer_size);
+	n = read(sock, buffer, buffer_size_chars);
+	if (errno == EAGAIN)
 	{
-		error("recv");
+		exit(0);
 	}
-	msg_length.whole = ntohl(msg_length.whole);
-	uint32_t msg_data_length = msg_length.whole - 4;
-
-	printf("Message octets: %d %d %d %d\n", msg_length.bytes[0], msg_length.bytes[1], msg_length.bytes[2], msg_length.bytes[3]);
-	printf("Message length: %u\n", msg_length);
-	printf("Message data length: %u\n", msg_data_length);
-
-	bzero(buffer, 256);
-	n = read(sock, buffer, 255);
 	if (n < 0)
 	{
-		error("read");
+		error("first read");
 	}
-	printf("Message: %s\n", buffer);
+	memcpy(msg_length.bytes, buffer, header_size);
+	msg_length.whole = ntohl(msg_length.whole);
+	msg_data_length = msg_length.whole - header_size;
+
+//	printf("Message octets: %d %d %d %d\n", msg_length.bytes[0], msg_length.bytes[1], msg_length.bytes[2], msg_length.bytes[3]);
+//	printf("Message length: %u\n", msg_length.whole);
+//	printf("Message data length: %u\n", msg_data_length);
+
+	bzero((char *) temp, buffer_size);
+	memcpy(temp, buffer + header_size, buffer_size - header_size);
+//	printf("Message: ");
+
+	/*
+	Make msg_data large enough to hold the entire message.
+	While we aren't currently storing the entire message in the array, it is there for when we do.
+	*/
+	char msg_data[msg_data_length - header_size + 1]; // With NUL.
+	bzero((char *) msg_data, msg_data_length - header_size + 1);
+	/*
+	If "msg_data_length" is less than "buffer size chars (buffer size minus 1) plus header_size", then the buffer contains the entire data message.
+	*/
+	if (msg_data_length < buffer_size_chars - header_size)
+	{
+		memcpy(msg_data, temp, msg_data_length - header_size);
+	}
+	/* Otherwise, it only contains the start of the message. */
+	else
+	{
+		memcpy(msg_data, temp, buffer_size_chars - header_size);
+		//strcat(msg_data, temp);
+	}
+
+	/*
+	If the message contains a NUL character printf is not suitable here or in the while loop.
+	*/
+	printf("%s", msg_data);
+
+	/* Position is how many bytes we have parsed. */
+	position = buffer_size_chars - header_size;
+	/*
+	Keep parsing until position equals the size indicated in the header.
+	*/
+	while (position < msg_data_length)
+	{
+		remaining_chars = msg_data_length - position;
+		bzero((char *) buffer, buffer_size);
+		if (remaining_chars > buffer_size_chars)
+		{
+			n = read(sock, buffer, buffer_size_chars);
+		}
+		else if (remaining_chars > 0)
+		{
+			n = read(sock, buffer, remaining_chars);
+		}
+		if (errno == EAGAIN)
+		{
+			/* Connection closed due to read timeout. */
+			fprintf(stderr, "Error: Timeout while waiting for rest of data.\n");
+			printf("--------------------------------------------------------------------------------\n");
+			exit(1);
+		}
+		if (n < 0)
+		{
+			error("subsequent read");
+		}
+		printf("%s", buffer);
+		position = position + n;
+	}
+
+	printf("\n--------------------------------------------------------------------------------\n");
 
 	char ack_msg[] = "Message received.\n";
 
