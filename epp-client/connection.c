@@ -35,6 +35,7 @@ char *EPP_TLS_CAFILE = "/etc/ssl/certs/StartCom_Certification_Authority.pem";
 char *EPP_TLS_CIPHERS = "PFS";
 char *MSG = "GET / HTTP/1.1\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n";
 int LOG_LEVEL = 0;
+int IPV4_ONLY, IPV6_ONLY = 0;
 
 void error_exit(const char *msg);
 ssize_t data_push(gnutls_transport_ptr_t, const void*, size_t);
@@ -62,12 +63,16 @@ int main(int argc, char **argv)
 			{"epp_tls_ca_file", required_argument, 0, 1005},
 			{"local_bind_addr", required_argument, 0, 1006},
 			{"local_bind_addr6", required_argument, 0, 1007},
+			{"disable-ipv6", no_argument, 0, '4'},
+			{"disable-ipv4", no_argument, 0, '6'},
+			{"ipv4-only", no_argument, 0, '4'},
+			{"ipv6-only", no_argument, 0, '6'},
 			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 
 		int option_index = 0;
-		c = getopt_long(argc, argv, "h", long_options, &option_index);
+		c = getopt_long(argc, argv, "46h", long_options, &option_index);
 		if (c == -1)
 		{
 			break;
@@ -81,6 +86,12 @@ int main(int argc, char **argv)
 				{
 					break;
 				}
+				break;
+			case '4':
+				IPV4_ONLY = 1;
+				break;
+			case '6':
+				IPV6_ONLY = 1;
 				break;
 			case 1001:
 				LOG_LEVEL = atoi(optarg);
@@ -121,6 +132,10 @@ int main(int argc, char **argv)
 				printf("  --epp_tls_ciphers value\n");
 				printf("	Cipher list - enabled and disabled ciphers (GnuTLS format).\n");
 				printf("	Default value: PFS\n");
+				printf("  --ipv4-only|--disable-ipv6|-4\n");
+				printf("	Runs in IPv4-Only Mode.\n");
+				printf("  --ipv6-only|--disable-ipv4|-6\n");
+				printf("	Runs in IPv6-Only Mode.\n");
 				printf("  --gnutls_log_level value\n");
 				printf("	Whole number between 0 and 9 for setting GnuTLS log level.\n");
 				printf("	Default value: 0\n");
@@ -254,29 +269,34 @@ int main(int argc, char **argv)
 */
 int hostname_to_ip(char *hostname, char *ip)
 {
-	int ipv4off = 0;
-	int ipv6off = 1;
 	struct addrinfo * _addrinfo;
 	struct addrinfo * _res;
 	int errorcode = 0;
 
-	if (ipv4off != 0 && ipv6off != 0) {
-		printf("hostname_to_ip error: both IPv4 and IPv6 is disabled.\n");
+	if (IPV4_ONLY == 1 && IPV6_ONLY == 1)
+	{
+		fprintf(stderr, "hostname_to_ip error: both IPv4 and IPv6 is disabled.\n");
 		exit(1);
 	}
 
 	errorcode = getaddrinfo(hostname, EPP_TLS_PORT, NULL, &_addrinfo);
-	if (errorcode != 0) {
-		printf("getaddrinfo: %s\n", gai_strerror(errorcode));
+	if (errorcode != 0)
+	{
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(errorcode));
 		exit(1);
 	}
 
-	for (_res = _addrinfo; _res != NULL; _res = _res->ai_next) {
-		if (_res->ai_family == AF_INET && ipv4off == 0) {
-			if (NULL == inet_ntop(AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, ip, INET6_ADDRSTRLEN)) {
+	for (_res = _addrinfo; _res != NULL; _res = _res->ai_next)
+	{
+		if (_res->ai_family == AF_INET && IPV6_ONLY != 1)
+		{
+			if (NULL == inet_ntop(AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, ip, INET6_ADDRSTRLEN))
+			{
 				perror("inet_ntop");
 				exit(1);
-			} else {
+			}
+			else
+			{
 				char * ipv4_mapping;
 				ipv4_mapping = "::ffff:";
 				char * ipv4_mapped = (char *) malloc(1 + strlen(ipv4_mapping) + strlen(ip));
@@ -287,11 +307,15 @@ int hostname_to_ip(char *hostname, char *ip)
 				return 0;
 			}
 		}
-		if (_res->ai_family == AF_INET6 && ipv6off == 0) {
-			if (NULL == inet_ntop(AF_INET6, &((struct sockaddr_in6 *)_res->ai_addr)->sin6_addr, ip, INET6_ADDRSTRLEN)) {
+		else if (_res->ai_family == AF_INET6 && IPV4_ONLY != 1)
+		{
+			if (NULL == inet_ntop(AF_INET6, &((struct sockaddr_in6 *)_res->ai_addr)->sin6_addr, ip, INET6_ADDRSTRLEN))
+			{
 				perror("inet_ntop");
 				exit(1);
-			} else {
+			}
+			else
+			{
 				return 0;
 			}
 		}
