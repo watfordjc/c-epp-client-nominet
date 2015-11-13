@@ -32,7 +32,7 @@
 #define EPP_TLS_CAFILE "/etc/ssl/certs/StartCom_Certification_Authority.pem"
 //#define EPP_TLS_CAFILE "/etc/ssl/certs/Verisign_Class_3_Public_Primary_Certification_Authority.pem"
 #define EPP_TLS_CIPHERS "PFS"
-#define MSG "GET / HTTP/1.0\r\nhost: webmail.thejc.me.uk\r\n\r\n"
+#define MSG "GET / HTTP/1.0\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n"
 #define LOG_LEVEL 0
 //#define COMMENTS
 
