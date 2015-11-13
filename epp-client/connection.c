@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <getopt.h>
 /* Socket Libraries */
 #include <unistd.h>
 #include <netinet/in.h>
@@ -31,9 +32,9 @@ char *EPP_HOSTNAME = "webmail.thejc.me.uk";
 char *EPP_TLS_PORT = "443";
 char *EPP_TLS_CAFILE = "/etc/ssl/certs/StartCom_Certification_Authority.pem";
 //#char * EPP_TLS_CAFILE = "/etc/ssl/certs/Verisign_Class_3_Public_Primary_Certification_Authority.pem";
-const char LOG_LEVEL = 0;
 char *EPP_TLS_CIPHERS = "PFS";
 char *MSG = "GET / HTTP/1.1\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n";
+int LOG_LEVEL = 0;
 
 void error_exit(const char *msg);
 ssize_t data_push(gnutls_transport_ptr_t, const void*, size_t);
@@ -46,6 +47,91 @@ int verify_cert(struct gnutls_session_int *);
 
 int main(int argc, char **argv)
 {
+/* Handle command line parameters */
+	int c;
+	while (1)
+	{
+		/* Values returned are char, so start at 1001 for long options without short equivalent so they don't interfere with short options (e.g. 'z' = 122). */
+		/* If a decision is made to later add a short option, change the number in the array and the case statement for that option (e.g. replacing 1008 with '4'. */
+		static struct option long_options[] =
+		{
+			{"gnutls_log_level", required_argument, 0, 1001},
+			{"epp_hostname", required_argument, 0, 1002},
+			{"epp_tls_port", required_argument, 0, 1003},
+			{"epp_tls_ciphers", required_argument, 0, 1004},
+			{"epp_tls_ca_file", required_argument, 0, 1005},
+			{"local_bind_addr", required_argument, 0, 1006},
+			{"local_bind_addr6", required_argument, 0, 1007},
+			{"help", no_argument, 0, 'h'},
+			{0, 0, 0, 0}
+		};
+
+		int option_index = 0;
+		c = getopt_long(argc, argv, "h", long_options, &option_index);
+		if (c == -1)
+		{
+			break;
+		}
+
+		switch (c)
+		{
+			case 0:
+				/* If this option set a flag, do nothing else now. */
+				if (long_options[option_index].flag != 0)
+				{
+					break;
+				}
+				break;
+			case 1001:
+				LOG_LEVEL = atoi(optarg);
+				break;
+			case 1002:
+				EPP_HOSTNAME = optarg;
+				break;
+			case 1003:
+				EPP_TLS_PORT = optarg;
+				break;
+			case 1004:
+				EPP_TLS_CIPHERS = optarg;
+				break;
+			case 1005:
+				EPP_TLS_CAFILE = optarg;
+				break;
+			case 1006:
+				BIND_ADDR = optarg;
+				break;
+			case 1007:
+				BIND_ADDR6 = optarg;
+				break;
+			case 'h':
+				printf("Usage: %s [options]\n",argv[0]);
+				printf("The --help output hasn't been finished yet.\n");
+				printf("For a list of command line options, look at the source code.\n");
+				printf("Options:\n");
+				printf("  --local_bind_addr value\n");
+				printf("	Local IPv4 IP address formatted as IPv4-mapped-IPv6 (e.g. ::ffff:127.0.0.1).\n");
+				printf("  --local_bind_addr6 value\n");
+				printf("	Local IPv6 IP address.\n");
+				printf("  --epp_hostname value\n");
+				printf("	EPP Server's IP address or hostname.\n");
+				printf("  --epp_tls_port value\n");
+				printf("	EPP Server's TLS port.\n");
+				printf("  --epp_tls_ca_file value\n");
+				printf("	Full path to EPP Server's Root CA file.\n");
+				printf("  --epp_tls_ciphers value\n");
+				printf("	Cipher list - enabled and disabled ciphers (GnuTLS format).\n");
+				printf("	Default value: PFS\n");
+				printf("  --gnutls_log_level value\n");
+				printf("	Whole number between 0 and 9 for setting GnuTLS log level.\n");
+				printf("	Default value: 0\n");
+				exit(0);
+				break;
+			default:
+				abort();
+		}
+
+	}
+
 	int res;
 	gnutls_certificate_credentials_t x509_cred;
 
