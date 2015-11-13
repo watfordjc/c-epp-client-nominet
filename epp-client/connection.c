@@ -272,6 +272,7 @@ int hostname_to_ip(char *hostname, char *ip)
 	struct addrinfo * _addrinfo;
 	struct addrinfo * _res;
 	int errorcode = 0;
+	static int ip_found = 0;
 
 	if (IPV4_ONLY == 1 && IPV6_ONLY == 1)
 	{
@@ -304,6 +305,7 @@ int hostname_to_ip(char *hostname, char *ip)
 				strcat(ipv4_mapped, ip);
 				strcpy(ip, ipv4_mapped);
 				free(ipv4_mapped);
+				ip_found = 1;
 				return 0;
 			}
 		}
@@ -316,9 +318,25 @@ int hostname_to_ip(char *hostname, char *ip)
 			}
 			else
 			{
+				ip_found = 1;
 				return 0;
 			}
 		}
+	}
+
+	if (ip_found == 0)
+	{
+		if (IPV4_ONLY == 1)
+		{
+			fprintf(stderr, "Hostname %s only has IPv6 IP address(es).\n", EPP_HOSTNAME);
+			fprintf(stderr,  "Unable to connect due to running in IPv4-only mode.\n");
+		}
+		else if (IPV6_ONLY == 1)
+		{
+			fprintf(stderr, "Hostname %s only has IPv4 IP address(es).\n", EPP_HOSTNAME);
+			fprintf(stderr, "Unable to connect due to running in IPv6-only mode.\n");
+		}
+		exit(1);
 	}
 
 	return 0;
