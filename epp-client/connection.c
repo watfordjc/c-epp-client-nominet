@@ -23,7 +23,7 @@
 	EPP_TLS_CIPHERS: string for cipher list - enabled and disabled ciphers (GnuTLS format).
 	MSG: string sent to server on successful connection.
 	LOG_LEVEL: integer between 0 and 9 for setting GnuTLS log level.
-	COMMENTS: uncomment to enable more verbose commenting for debugging purposes.
+	COMMENTS: build with -DCOMMENTS to enable more verbose commenting for debugging purposes.
 */
 char *BIND_ADDR = "::ffff:82.26.77.204";
 char *BIND_ADDR6 = "2001:470:1f09:1aab::80:d";
@@ -32,7 +32,6 @@ char *EPP_TLS_PORT = "443";
 char *EPP_TLS_CAFILE = "/etc/ssl/certs/StartCom_Certification_Authority.pem";
 //#char * EPP_TLS_CAFILE = "/etc/ssl/certs/Verisign_Class_3_Public_Primary_Certification_Authority.pem";
 const char LOG_LEVEL = 0;
-//#define COMMENTS
 char *EPP_TLS_CIPHERS = "PFS";
 char *MSG = "GET / HTTP/1.1\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Client\r\n\r\n";
 
