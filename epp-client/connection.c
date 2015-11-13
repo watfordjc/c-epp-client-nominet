@@ -15,6 +15,8 @@
 #include <gnutls/x509.h>
 
 /* Connection Variables:
+	BIND_ADDR: Local IPv4 IP address formatted as IPv4-mapped-IPv6 (e.g. ::ffff:127.0.0.1).
+	BIND_ADDR6: Local IPv6 IP address.
 	EPP_HOSTNAME: string for EPP Server's IP address or hostname.
 	EPP_TLS_PORT: string for EPP Server's TLS port.
 	EPP_TLS_CAFILE: string for full path to EPP Server's Root CA file.
@@ -23,6 +25,8 @@
 	LOG_LEVEL: integer between 0 and 9 for setting GnuTLS log level.
 	COMMENTS: uncomment to enable more verbose commenting for debugging purposes.
 */
+#define BIND_ADDR "::ffff:82.26.77.204"
+#define BIND_ADDR6 "2001:470:1f09:1aab::b:0"
 #define EPP_HOSTNAME "webmail.thejc.me.uk"
 #define EPP_TLS_PORT "443"
 #define EPP_TLS_CAFILE "/etc/ssl/certs/StartCom_Certification_Authority.pem"
@@ -157,7 +161,7 @@ int main(int argc, char **argv)
 int hostname_to_ip(char *hostname, char *ip)
 {
 	int ipv4off = 0;
-	int ipv6off = 0;
+	int ipv6off = 1;
 	struct addrinfo * _addrinfo;
 	struct addrinfo * _res;
 	int errorcode = 0;
@@ -240,6 +244,17 @@ int make_one_connection(const char *ip, int port)
 #endif
 	int res;
 	int connfd = socket(AF_INET6, SOCK_STREAM, 0);
+
+	char *local_bind_address = BIND_ADDR6;
+	size_t len = strlen(ip);
+	size_t spn = strcspn(ip, ".");
+	if (spn != len) { local_bind_address = BIND_ADDR; }
+	struct sockaddr_in6 local_addr;
+	local_addr.sin6_family = AF_INET6;
+	res = inet_pton(AF_INET6, local_bind_address, &local_addr.sin6_addr);
+	local_addr.sin6_port = 0;
+	bind(connfd, (struct sockaddr *)&local_addr, sizeof(local_addr));
+
 	struct sockaddr_in6 serv_addr;
 	if (connfd < 0) {
 		error_exit("socket() failed.\n");
