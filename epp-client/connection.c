@@ -26,7 +26,7 @@
 	COMMENTS: uncomment to enable more verbose commenting for debugging purposes.
 */
 #define BIND_ADDR "::ffff:82.26.77.204"
-#define BIND_ADDR6 "2001:470:1f09:1aab::b:0"
+#define BIND_ADDR6 "2001:470:1f09:1aab::80:d"
 #define EPP_HOSTNAME "webmail.thejc.me.uk"
 #define EPP_TLS_PORT "443"
 #define EPP_TLS_CAFILE "/etc/ssl/certs/StartCom_Certification_Authority.pem"
@@ -250,10 +250,16 @@ int make_one_connection(const char *ip, int port)
 	size_t spn = strcspn(ip, ".");
 	if (spn != len) { local_bind_address = BIND_ADDR; }
 	struct sockaddr_in6 local_addr;
+	if (connfd < 0) {
+		error_exit("socket() failed.\n");
+	}
 	local_addr.sin6_family = AF_INET6;
 	res = inet_pton(AF_INET6, local_bind_address, &local_addr.sin6_addr);
 	local_addr.sin6_port = 0;
-	bind(connfd, (struct sockaddr *)&local_addr, sizeof(local_addr));
+	res = bind(connfd, (struct sockaddr *)&local_addr, sizeof(local_addr));
+	if (res < 0) {
+		error_exit("bind() failed. Ensure BIND_ADDR and/or BIND_ADDR6 IP addresses exist on this system.\n");
+	}
 
 	struct sockaddr_in6 serv_addr;
 	if (connfd < 0) {
