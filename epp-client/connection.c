@@ -61,8 +61,9 @@ int main(int argc, char **argv)
 	gnutls_certificate_set_x509_trust_file(x509_cred, EPP_TLS_CAFILE, GNUTLS_X509_FMT_PEM);
 
 	res = gnutls_init(&session, GNUTLS_CLIENT);
-	if (res != GNUTLS_E_SUCCESS) {
-		printf("Error code %d in gnutls_init(): %s\n",res,gnutls_strerror(res));
+	if (res != GNUTLS_E_SUCCESS)
+	{
+		fprintf(stderr, "Error code %d in gnutls_init(): %s\n",res,gnutls_strerror(res));
 		exit(1);
 	}
 
@@ -71,9 +72,10 @@ int main(int argc, char **argv)
 
 	const char *error = NULL;
 	res = gnutls_priority_set_direct(session, EPP_TLS_CIPHERS, &error);
-	if (res != GNUTLS_E_SUCCESS) {
-		printf("Invalid Cipher: %s\n",error);
-		printf("Error code %d in gnutls_priority_set_direct(): %s\n",res,gnutls_strerror(res));
+	if (res != GNUTLS_E_SUCCESS)
+	{
+		fprintf(stderr, "Invalid Cipher: %s\n",error);
+		fprintf(stderr, "Error code %d in gnutls_priority_set_direct(): %s\n",res,gnutls_strerror(res));
 		exit(1);
 	}
 
@@ -101,8 +103,9 @@ int main(int argc, char **argv)
 		res = gnutls_handshake(session);
 	} while (res != 0 && !gnutls_error_is_fatal(res));
 
-	if (gnutls_error_is_fatal(res)) {
-		printf("Error code %d in gnutls_handshake(): %s\n",res,gnutls_strerror(res));
+	if (gnutls_error_is_fatal(res))
+	{
+		fprintf(stderr, "Error code %d in gnutls_handshake(): %s\n",res,gnutls_strerror(res));
 		exit(1);
 	}
 
@@ -119,14 +122,20 @@ int main(int argc, char **argv)
 #endif
 	char buf[256];
 	res = gnutls_record_recv(session, buf, sizeof(buf));
-	while (res != 0) {
-		if (res == GNUTLS_E_REHANDSHAKE) {
-			printf("Error code %d: %s\n",res,gnutls_strerror(res));
+	while (res != 0)
+	{
+		if (res == GNUTLS_E_REHANDSHAKE)
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
 			error_exit("Peer wants to re-handshake but we don't support that.\n");
-		} else if (gnutls_error_is_fatal(res)) {
-			printf("Error code %d: %s\n",res,gnutls_strerror(res));
+		}
+		else if (gnutls_error_is_fatal(res))
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
 			error_exit("Fatal error during read.\n");
-		} else if (res > 0) {
+		}
+		else if (res > 0)
+		{
 			fwrite(buf, 1, res, stdout);
 			fflush(stdout);
 		}
@@ -218,7 +227,7 @@ void print_audit_logs(gnutls_session_t session, const char* message)
 
 void error_exit(const char *msg)
 {
-	printf("ERROR: %s", msg);
+	fprintf(stderr, "ERROR: %s", msg);
 	exit(1);
 }
 
@@ -248,34 +257,44 @@ int make_one_connection(const char *ip, int port)
 	char *local_bind_address = BIND_ADDR6;
 	size_t len = strlen(ip);
 	size_t spn = strcspn(ip, ".");
-	if (spn != len) { local_bind_address = BIND_ADDR; }
+	if (spn != len)
+	{
+		local_bind_address = BIND_ADDR;
+	}
 	struct sockaddr_in6 local_addr;
-	if (connfd < 0) {
+	if (connfd < 0)
+	{
 		error_exit("socket() failed.\n");
 	}
 	local_addr.sin6_family = AF_INET6;
 	res = inet_pton(AF_INET6, local_bind_address, &local_addr.sin6_addr);
 	local_addr.sin6_port = 0;
 	res = bind(connfd, (struct sockaddr *)&local_addr, sizeof(local_addr));
-	if (res < 0) {
-		error_exit("bind() failed. Ensure BIND_ADDR and/or BIND_ADDR6 IP addresses exist on this system.\n");
+	if (res < 0)
+	{
+		perror("bind");
+		exit(1);
 	}
 
 	struct sockaddr_in6 serv_addr;
-	if (connfd < 0) {
+	if (connfd < 0)
+	{
 		error_exit("socket() failed.\n");
 	}
 	serv_addr.sin6_family = AF_INET6;
 	res = inet_pton(AF_INET6, ip, &serv_addr.sin6_addr);
 	serv_addr.sin6_port = htons(port);
 	res = connect(connfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-	if (res < 0) {
-		error_exit("connect() failed.\n");
+	if (res < 0)
+	{
+		perror("connect");
+		exit(1);
 	}
 	return connfd;
 }
 
-int verify_cert(gnutls_session_t session) {
+int verify_cert(gnutls_session_t session)
+{
 	unsigned int status;
 	int ret, type;
 	const char *hostname;
@@ -297,16 +316,18 @@ int verify_cert(gnutls_session_t session) {
 
 	ret = gnutls_certificate_verify_peers(session, data, 2, &status);
 
-	if (ret < 0) {
-		printf("Error\n");
+	if (ret < 0)
+	{
+		fprintf(stderr, "Error\n");
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
 	type = gnutls_certificate_type_get(session);
 	ret = gnutls_certificate_verification_status_print(status, type, &out, 0);
 
-	if (ret < 0) {
-		printf("Error\n");
+	if (ret < 0)
+	{
+		fprintf(stderr, "Error\n");
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
@@ -316,7 +337,8 @@ int verify_cert(gnutls_session_t session) {
 	gnutls_free(out.data);
 
 
-	if (status != 0) {
+	if (status != 0)
+	{
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 	return 0;
