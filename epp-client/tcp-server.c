@@ -180,7 +180,7 @@ void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 
 	int read_chars;
 	/*
-	If "msg_data_length" is less than "buffer size chars (buffer size minus 1) plus header_size", then the buffer contains the entire data message.
+	If "msg_data_length" is less than "buffer size chars (buffer size minus 1) minus header_size", then the buffer contains the entire data message.
 	*/
 	if (msg_data_length < buffer_size_chars - header_size)
 	{
@@ -228,11 +228,18 @@ void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 		}
 		memcpy(msg_data + position, buffer, read_chars);
 		position = position + n;
+		char *end_of_root = NULL;
+		end_of_root = strstr(msg_data, "</epp>");
+		if (end_of_root != NULL)
+		{
+			msg_data_length = end_of_root + 6 - msg_data;
+			break;
+		}
 	}
 
 	char *msgPtr;
 	msgPtr = msg_data;
-	xml_parse(msgPtr, buffer_size, pSchemaCtxt);
+	xml_parse(msgPtr, msg_data_length, pSchemaCtxt);
 
 	printf("\n--------------------------------------------------------------------------------\n");
 
