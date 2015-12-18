@@ -306,7 +306,7 @@ void GetclTRID(char *TAG, char *client, char *priority, char *registrantID, char
 	memcpy(clTRID, TAG, strlen(TAG));
 	memcpy(clTRID + strlen(clTRID), "-", 1);
 	strftime(clTRID + strlen(clTRID), 17, "%Y%m%dT%H%M%S.", dateTime);
-	snprintf(clTRID + strlen(clTRID), 10, "%ld", unixTime.tv_nsec);
+	snprintf(clTRID + strlen(clTRID), 10, "%09ld", unixTime.tv_nsec);
 	memcpy(clTRID + strlen(clTRID), "-", 1);
 	memcpy(clTRID + strlen(clTRID), client, 2);
 	memcpy(clTRID + strlen(clTRID), "-", 1);
