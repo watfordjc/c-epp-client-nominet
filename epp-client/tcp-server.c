@@ -287,8 +287,8 @@ void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSche
 	bzero((char *) clTRID, 65);
 
 	char *TAG = "JOHNCOOK";
-	char *client = "00";
-	char *priority = "00";
+	char client[3] = "00";
+	char priority[2] = "0";
 
 	char *registrantID = "123456";
 
@@ -372,13 +372,7 @@ void GetclTRID(char *TAG, char *client, char *priority, char *registrantID, char
 	dateTime = gmtime(&epochSecs);
 
 	memcpy(clTRID, TAG, strlen(TAG));
-	memcpy(clTRID + strlen(clTRID), "-", 1);
-	strftime(clTRID + strlen(clTRID), 17, "%Y%m%dT%H%M%S.", dateTime);
-	snprintf(clTRID + strlen(clTRID), 10, "%09ld", unixTime.tv_nsec);
-	memcpy(clTRID + strlen(clTRID), "-", 1);
-	memcpy(clTRID + strlen(clTRID), client, 2);
-	memcpy(clTRID + strlen(clTRID), "-", 1);
-	memcpy(clTRID + strlen(clTRID), priority, 2);
-	memcpy(clTRID + strlen(clTRID), "-", 1);
+	strftime(clTRID + strlen(clTRID), 18, "-%Y%m%dT%H%M%S.", dateTime);
+	snprintf(clTRID + strlen(clTRID), 16, "%09ld%s%s%s%s%s", unixTime.tv_nsec, "-", client, "-", priority, "-");
 	memcpy(clTRID + strlen(clTRID), registrantID, strlen(registrantID));
 }
