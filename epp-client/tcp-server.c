@@ -255,20 +255,19 @@ void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 
 void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSchemaCtxt)
 {
+	char *log_directory = "/home/thejc/Scripts/epp/logs/";
+	char *log_file = log_directory;
 	/*
 	If the message contains a NUL character printf is not suitable here.
 	*/
-	printf("%s\n", msg_data);
+	//printf("%s\n", msg_data);
 
-	xmlDocPtr doc;
+	xmlKeepBlanksDefault(0);
+	xmlDocPtr doc = NULL;
 	doc = xmlReadMemory(msg_data, buffer_size, "noname.xml", NULL, 0);
 	if (doc == NULL)
 	{
 		error("xmlReadMemory");
-	}
-	else
-	{
-		printf("Document parsed!\n");
 	}
 
 	int invalid;
@@ -277,10 +276,6 @@ void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSche
 	if (invalid)
 	{
 		error("xmlSchemaValidateDoc");
-	}
-	else
-	{
-		printf("Document validates!\n");
 	}
 
 
@@ -294,7 +289,69 @@ void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSche
 	char *registrantID = "123456";
 
 	GetclTRID(TAG, client, priority, registrantID, clTRID);
-	printf("clTRID: %s\n", &clTRID);
+
+	if (clTRID != "")
+	{
+		xmlNodePtr root_node = NULL;
+		xmlNodePtr command_node = NULL;
+		xmlNodePtr clTRID_node = NULL;
+		xmlNodePtr nodeLevel1 = NULL;
+		xmlNodePtr nodeLevel2 = NULL;
+		xmlNodePtr nodeLevel3 = NULL;
+		xmlNsPtr ns = NULL;
+
+		for(nodeLevel1 = doc->children; nodeLevel1 != NULL; nodeLevel1 = nodeLevel1->next)
+		{
+			root_node = nodeLevel1;
+			xmlDocSetRootElement(doc, root_node);
+			ns = xmlSearchNs(doc, root_node, NULL);
+
+			for(nodeLevel2 = nodeLevel1->children; nodeLevel2 != NULL; nodeLevel2 = nodeLevel2->next)
+			{
+				if (strcmp((char *) nodeLevel2->name,"command") == 0)
+				{
+					command_node = nodeLevel2;
+					for(nodeLevel3 = nodeLevel2->children; nodeLevel3 != NULL; nodeLevel3 = nodeLevel3->next)
+					{
+						if (strcmp((char *) nodeLevel3->name,"clTRID") == 0)
+						{
+							clTRID_node = nodeLevel3;
+						}
+					}
+				}
+			}
+		}
+		if (command_node != NULL && clTRID_node == NULL)
+		{
+			xmlNewChild(command_node, ns, "clTRID", (xmlChar *) clTRID);
+		}
+		else if (command_node != NULL && clTRID_node != NULL)
+		{
+			xmlNodeSetContent(clTRID_node,(xmlChar *) clTRID);
+		}
+
+		invalid = xmlSchemaValidateDoc(pSchemaCtxt, doc);
+
+		if (invalid)
+		{
+			error("xmlSchemaValidateDoc");
+		}
+
+		char logfile_req[strlen(log_file) + strlen(clTRID) + strlen(".req") + 1];
+		memset(logfile_req, 0, sizeof(logfile_req));
+		memcpy(logfile_req, log_file, strlen(log_file));
+		memcpy(logfile_req + strlen(logfile_req), clTRID, strlen(clTRID));
+		memcpy(logfile_req + strlen(logfile_req), ".req\0", 5);
+
+		xmlDocFormatDump(stdout,doc,1);
+
+		int savedBytes = xmlSaveFormatFileEnc(logfile_req, doc, "utf-8", 1);
+		if (savedBytes < 0)
+		{
+			fprintf(stderr, "Unable to save file %s.\n",logfile_req);
+		}
+
+	}
 
 	xmlFreeDoc(doc);
 }
