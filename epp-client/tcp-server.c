@@ -14,11 +14,13 @@
 /* XML Libraries */
 #include <libxml/tree.h>
 #include <libxml/parser.h>
+#include <libxml/xmlreader.h>
+#include <libxml/xmlmemory.h>
 /* Time and Date */
 #include <time.h>
 
-void established_connection(int);
-void xml_parse(char *msg_data2);
+void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt);
+void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSchemaCtxt);
 void GetclTRID(char *TAG, char *client, char *priority, char *registrantID, char *clTRID);
 
 void error(char *msg)
@@ -65,6 +67,22 @@ int main(int argc, char *argv[])
 
 	client_addr_len = sizeof(client_addr);
 
+	xmlDocPtr pSchemaDoc;
+	xmlSchemaParserCtxtPtr pParser;
+	xmlSchemaPtr pSchema;
+	xmlSchemaValidCtxtPtr pSchemaCtxt;
+
+	LIBXML_TEST_VERSION;
+	xmlInitMemory();
+
+	char *xsdFile = "/home/thejc/Scripts/epp/nom-std-1.0.9-schemas/nom-root-std-1.0.9.xsd";
+	pSchemaDoc = xmlReadFile(xsdFile, NULL, XML_PARSE_NONET);
+	pParser = xmlSchemaNewDocParserCtxt(pSchemaDoc);
+	pSchema = xmlSchemaParse(pParser);
+	pSchemaCtxt = xmlSchemaNewValidCtxt(pSchema);
+
+	xmlSchemaSetValidErrors(pSchemaCtxt, NULL, NULL, NULL);
+
 	while (1)
 	{
 		struct timeval timeout_recv;
@@ -95,7 +113,7 @@ int main(int argc, char *argv[])
 		if (pid == 0)
 		{
 			close(sock_fd);
-			established_connection(newsock_fd);
+			established_connection(newsock_fd, pSchemaCtxt);
 			exit(0);
 		}
 		else {
@@ -103,13 +121,20 @@ int main(int argc, char *argv[])
 		}
 	}
 	close(sock_fd);
+
+	xmlFreeDoc(pSchemaDoc);
+	xmlSchemaFreeValidCtxt(pSchemaCtxt);
+	xmlSchemaCleanupTypes();
+	xmlCleanupParser();
+	xmlMemoryDump();
+
 	return 0;
 
 }
 
 /* After a connection is successfully established, processing is no longer in main().
  * Instead, all processing within a client connection is handled within established_connection(). */
-void established_connection(int sock)
+void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 {
 	uint32_t buffer_size = 256;
 	uint32_t header_size = 4;
@@ -207,7 +232,7 @@ void established_connection(int sock)
 
 	char *msgPtr;
 	msgPtr = msg_data;
-	xml_parse(msgPtr);
+	xml_parse(msgPtr, buffer_size, pSchemaCtxt);
 
 	printf("\n--------------------------------------------------------------------------------\n");
 
@@ -218,14 +243,39 @@ void established_connection(int sock)
 	{
 		error("write");
 	}
+
 }
 
-void xml_parse(char *msg_data)
+void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSchemaCtxt)
 {
 	/*
 	If the message contains a NUL character printf is not suitable here.
 	*/
 	printf("%s\n", msg_data);
+
+	xmlDocPtr doc;
+	doc = xmlReadMemory(msg_data, buffer_size, "noname.xml", NULL, 0);
+	if (doc == NULL)
+	{
+		error("xmlReadMemory");
+	}
+	else
+	{
+		printf("Document parsed!\n");
+	}
+
+	int invalid;
+	invalid = xmlSchemaValidateDoc(pSchemaCtxt, doc);
+
+	if (invalid)
+	{
+		error("xmlSchemaValidateDoc");
+	}
+	else
+	{
+		printf("Document validates!\n");
+	}
+
 
 	char clTRID[64] = "";
 	bzero((char *) clTRID, 65);
@@ -239,6 +289,7 @@ void xml_parse(char *msg_data)
 	GetclTRID(TAG, client, priority, registrantID, clTRID);
 	printf("clTRID: %s\n", &clTRID);
 
+	xmlFreeDoc(doc);
 }
 
 void GetclTRID(char *TAG, char *client, char *priority, char *registrantID, char *clTRID)
