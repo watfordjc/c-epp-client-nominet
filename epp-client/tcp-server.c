@@ -226,6 +226,10 @@ void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 		{
 			error("subsequent read");
 		}
+		if (n == 0)
+		{
+			error("Possible infinite loop");
+		}
 		memcpy(msg_data + position, buffer, read_chars);
 		position = position + n;
 		char *end_of_root = NULL;
