@@ -66,9 +66,9 @@ struct login_settings
 	const char *objURL[];
 };
 
-int GetConfigInt(config_setting_t *setting, char* name);
-int GetConfigBool(config_setting_t *setting, char* name);
-const char* GetConfigString(config_setting_t *setting, char* name);
+int get_config_int(config_setting_t *setting, char* name);
+int get_config_bool(config_setting_t *setting, char* name);
+const char* get_config_string(config_setting_t *setting, char* name);
 
 config_t conf, *config;
 
@@ -81,7 +81,7 @@ void print_logs(int, const char*);
 void print_audit_logs(gnutls_session_t, const char*);
 
 int make_one_connection(const char *address, int port);
-int hostname_to_ip(char *, char *);
+int get_ip_from_hostname(char *, char *);
 int verify_cert(struct gnutls_session_int *);
 
 int main(int argc, char **argv)
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 			continue;
 		}
 		struct login_settings schema_login;
-		schema_login.bundle_file = GetConfigString(current_element, "bundle_file");
+		schema_login.bundle_file = get_config_string(current_element, "bundle_file");
 		schema_login.pointer = current_element;
 		printf("schemas[%d].bundle_file = %s\n", i, schema_login.bundle_file);
 
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
 
 			config_setting_t *server_setting = NULL;
 
-			int server_setting_int = GetConfigBool(current_element2, "enabled");
+			int server_setting_int = get_config_bool(current_element2, "enabled");
 			if (server_setting_int == 0)
 			{
 				fprintf(stdout, "Server %d is not enabled.\n", j);
@@ -157,13 +157,13 @@ int main(int argc, char **argv)
 			else if (server_setting_int > 0)
 			{
 				server_login.enabled = server_setting_int;
-				server_login.hostname = GetConfigString(current_element2, "hostname");
-				server_login.port = GetConfigInt(current_element2, "port");
+				server_login.hostname = get_config_string(current_element2, "hostname");
+				server_login.port = get_config_int(current_element2, "port");
 				printf("schemas[%d].servers[%d].enabled = %d\n", i, j, server_login.enabled);
 				printf("schemas[%d].servers[%d].hostname = %s\n", i, j, server_login.hostname);
 				printf("schemas[%d].servers[%d].port = %d\n", i, j, server_login.port);
 
-				server_setting_int = GetConfigBool(current_element2, "tls");
+				server_setting_int = get_config_bool(current_element2, "tls");
 				if (server_setting_int == 0)
 				{
 					fprintf(stdout, "Server %d is not configured for TLS. This program only supports TLS servers.\n", j);
@@ -172,17 +172,17 @@ int main(int argc, char **argv)
 				else if (server_setting_int > 0)
 				{
 					server_login.tls = server_setting_int;
-					server_login.tls_ca_file = GetConfigString(current_element2, "tls_ca_file");
-					server_login.tls_ciphers = GetConfigString(current_element2, "tls_ciphers");
+					server_login.tls_ca_file = get_config_string(current_element2, "tls_ca_file");
+					server_login.tls_ciphers = get_config_string(current_element2, "tls_ciphers");
 					printf("schemas[%d].servers[%d].tls = %d\n", i, j, server_login.tls);
 					printf("schemas[%d].servers[%d].tls_ca_file = %s\n", i, j, server_login.tls_ca_file);
 					printf("schemas[%d].servers[%d].tls_ciphers = %s\n", i, j, server_login.tls_ciphers);
 				}
 
-				server_login.keep_alive = GetConfigInt(current_element2, "keep_alive");
-				server_login.xmlns = GetConfigString(current_element2, "xml.xmlns");
-				server_login.xmlns_xsi = GetConfigString(current_element2, "xml.xmlns-xsi");
-				server_login.xsi_schemaLocation = GetConfigString(current_element2, "xml.xsi-schemaLocation");
+				server_login.keep_alive = get_config_int(current_element2, "keep_alive");
+				server_login.xmlns = get_config_string(current_element2, "xml.xmlns");
+				server_login.xmlns_xsi = get_config_string(current_element2, "xml.xmlns-xsi");
+				server_login.xsi_schemaLocation = get_config_string(current_element2, "xml.xsi-schemaLocation");
 
 				printf("schemas[%d].servers[%d].keep_alive = %d\n", i, j, server_login.keep_alive);
 				printf("schemas[%d].servers[%d].xml.xmlns = %s\n", i, j, server_login.xmlns);
@@ -214,21 +214,21 @@ int main(int argc, char **argv)
 					memcpy(&login, &server_login, sizeof(login));
 					login.pointer = current_element3;
 
-					login.bind_ipv4_mapped = GetConfigString(current_element3, "bind_ipv4_mapped");
-					login.bind_ipv6 = GetConfigString(current_element3, "bind_ipv6");
-					login.ipv4_only = GetConfigBool(current_element3, "ipv4_only");
-					login.ipv6_only = GetConfigBool(current_element3, "ipv6_only");
+					login.bind_ipv4_mapped = get_config_string(current_element3, "bind_ipv4_mapped");
+					login.bind_ipv6 = get_config_string(current_element3, "bind_ipv6");
+					login.ipv4_only = get_config_bool(current_element3, "ipv4_only");
+					login.ipv6_only = get_config_bool(current_element3, "ipv6_only");
 
 					printf("schemas[%d].servers[%d].logins[%d].bind_ipv4_mapped = %s\n", i, j, k, login.bind_ipv4_mapped);
 					printf("schemas[%d].servers[%d].logins[%d].ipv4_only = %d\n", i, j, k, login.ipv4_only);
 					printf("schemas[%d].servers[%d].logins[%d].bind_ipv6 = %s\n", i, j, k, login.bind_ipv6);
 					printf("schemas[%d].servers[%d].logins[%d].ipv6_only = %d\n", i, j, k, login.ipv6_only);
 
-					login.clID = GetConfigString(current_element3, "clID");
-					login.pw = GetConfigString(current_element3, "pw");
+					login.clID = get_config_string(current_element3, "clID");
+					login.pw = get_config_string(current_element3, "pw");
 
-					login.version = GetConfigString(current_element3, "options.version");
-					login.lang = GetConfigString(current_element3, "options.lang");
+					login.version = get_config_string(current_element3, "options.version");
+					login.lang = get_config_string(current_element3, "options.lang");
 
 					printf("schemas[%d].servers[%d].logins[%d].clID = %s\n", i, j, k, login.clID);
 					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, login.pw);
@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 					//
 					login.pw = "newpassword";
 					config_setting_set_string(config_setting_lookup(login.pointer, "pw"), login.pw);
-					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, GetConfigString(current_element3, "pw"));
+					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, get_config_string(current_element3, "pw"));
 					config_write_file(config, CONFIG_FILE);
 					//
 					*/
@@ -419,7 +419,7 @@ int main2(int argc, char **argv)
 
 	char *hostname = EPP_HOSTNAME;
 	char ip[INET6_ADDRSTRLEN];
-	hostname_to_ip(hostname, ip);
+	get_ip_from_hostname(hostname, ip);
 #ifdef COMMENTS
 	printf("%s resolved to %s\n", hostname, ip);
 #endif
@@ -495,11 +495,11 @@ int main2(int argc, char **argv)
 }
 
 /*
-* Function GetConfigInt looks up the integer value of 'name'
+* Function get_config_int looks up the integer value of 'name'
 *. in the configuration setting 'setting' and returns the integer.
 *  -1 is returned if 'name' does not exist.
 */
-int GetConfigInt(config_setting_t *setting, char* name)
+int get_config_int(config_setting_t *setting, char* name)
 {
 	config_setting_t *setting_pointer = NULL;
 	setting_pointer = config_setting_lookup(setting, name);
@@ -514,11 +514,11 @@ int GetConfigInt(config_setting_t *setting, char* name)
 }
 
 /*
-* Function GetConfigBool looks up the boolean value of 'name'
+* Function get_config_bool looks up the boolean value of 'name'
 *. in the configuration setting 'setting' and returns it as an integer.
 *  -1 is returned if 'name' does not exist.
 */
-int GetConfigBool(config_setting_t *setting, char* name)
+int get_config_bool(config_setting_t *setting, char* name)
 {
 	config_setting_t *setting_pointer = NULL;
 	setting_pointer = config_setting_lookup(setting, name);
@@ -533,11 +533,11 @@ int GetConfigBool(config_setting_t *setting, char* name)
 }
 
 /*
-* Function GetConfigString looks up the string value of 'name'
+* Function get_config_string looks up the string value of 'name'
 *. in the configuration setting 'setting' and returns the string.
 *  NULL is returned if 'name' does not exist.
 */
-const char* GetConfigString(config_setting_t *setting, char* name)
+const char* get_config_string(config_setting_t *setting, char* name)
 {
 	config_setting_t *setting_pointer = NULL;
 	setting_pointer = config_setting_lookup(setting, name);
@@ -551,7 +551,7 @@ const char* GetConfigString(config_setting_t *setting, char* name)
 	}
 }
 
-/* function hostname_to_ip is a modified version of:
+/* function get_ip_from_hostname is a modified version of:
 	https://gist.github.com/twslankard/1001201
 	IPv6 support added, but no preference given.
 	First A/AAAA IP address listed by DNS resolver will be used.
@@ -559,7 +559,7 @@ const char* GetConfigString(config_setting_t *setting, char* name)
 	ipv4off: set to 1 to disable the return of an IPv4 address.
 	ipv6off: set to 1 to disable the return of an IPv6 address.
 */
-int hostname_to_ip(char *hostname, char *ip)
+int get_ip_from_hostname(char *hostname, char *ip)
 {
 	struct addrinfo * _addrinfo;
 	struct addrinfo * _res;
@@ -568,7 +568,7 @@ int hostname_to_ip(char *hostname, char *ip)
 
 	if (IPV4_ONLY == 1 && IPV6_ONLY == 1)
 	{
-		fprintf(stderr, "hostname_to_ip error: both IPv4 and IPv6 is disabled.\n");
+		fprintf(stderr, "get_ip_from_hostname error: both IPv4 and IPv6 is disabled.\n");
 		exit(1);
 	}
 
