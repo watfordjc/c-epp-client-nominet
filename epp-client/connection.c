@@ -43,26 +43,26 @@ int IPV4_ONLY, IPV6_ONLY = 0;
 
 struct login_settings
 {
-	const char *bundle_file;
 	int enabled;
-	const char *hostname;
-	int port;
 	int tls;
-	const char *tls_ca_file;
-	const char *tls_ciphers;
 	int keep_alive;
+	int ipv4_only;
+	int ipv6_only;
+	int port;
+	config_setting_t *pointer;
+	const char *lang;
+	const char *version;
+	const char *clID;
+	const char *pw;
+	const char *hostname;
+	const char *bind_ipv4_mapped;
+	const char *bind_ipv6;
 	const char *xmlns;
 	const char *xmlns_xsi;
 	const char *xsi_schemaLocation;
-	const char *bind_ipv4_mapped;
-	const char *bind_ipv6;
-	int ipv4_only;
-	int ipv6_only;
-	const char *clID;
-	const char *pw;
-	const char *version;
-	const char *lang;
-	config_setting_t *pointer;
+	const char *bundle_file;
+	const char *tls_ca_file;
+	const char *tls_ciphers;
 	const char *objURL[];
 };
 
