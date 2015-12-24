@@ -14,6 +14,8 @@
 /* GnuTLS */
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
+/* libconfig */
+#include <libconfig.h>
 
 /* Connection Variables:
 	BIND_ADDR: Local IPv4 IP address formatted as IPv4-mapped-IPv6 (e.g. ::ffff:127.0.0.1).
@@ -37,16 +39,249 @@ char *MSG = "GET / HTTP/1.1\r\nhost: webmail.thejc.me.uk\r\nUser-agent: EPP Clie
 int LOG_LEVEL = 0;
 int IPV4_ONLY, IPV6_ONLY = 0;
 
+#define config_setting_lookup config_lookup_from
+
+struct login_settings
+{
+	const char *bundle_file;
+	int enabled;
+	const char *hostname;
+	int port;
+	int tls;
+	const char *tls_ca_file;
+	const char *tls_ciphers;
+	int keep_alive;
+	const char *xmlns;
+	const char *xmlns_xsi;
+	const char *xsi_schemaLocation;
+	const char *bind_ipv4_mapped;
+	const char *bind_ipv6;
+	int ipv4_only;
+	int ipv6_only;
+	const char *clID;
+	const char *pw;
+	const char *version;
+	const char *lang;
+	config_setting_t *pointer;
+	const char *objURL[];
+};
+
+int GetConfigInt(config_setting_t *setting, char* name);
+int GetConfigBool(config_setting_t *setting, char* name);
+const char* GetConfigString(config_setting_t *setting, char* name);
+
+config_t conf, *config;
+
+char *CONFIG_FILE = "/home/thejc/Scripts/epp/epp-client/epp.config";
+
 void error_exit(const char *msg);
 ssize_t data_push(gnutls_transport_ptr_t, const void*, size_t);
 ssize_t data_pull(gnutls_transport_ptr_t, void*, size_t);
 void print_logs(int, const char*);
 void print_audit_logs(gnutls_session_t, const char*);
+
 int make_one_connection(const char *address, int port);
 int hostname_to_ip(char *, char *);
 int verify_cert(struct gnutls_session_int *);
 
 int main(int argc, char **argv)
+{
+	config = &conf;
+	config_init(config);
+	int loaded_config = config_read_file(config, CONFIG_FILE);
+	if (loaded_config != 1)
+	{
+		fprintf(stderr, "Error reading config file %s. Error on line %d: %s\n", config_error_file(config), config_error_line(config), config_error_text(config));
+		config_destroy(config);
+		error("config_read_file");
+	}
+
+	/*
+	* Loop through schemas.
+	*/
+	config_setting_t *conf_schemas = config_lookup(config, "schemas");
+	if (conf_schemas == NULL)
+	{
+		fprintf(stderr, "No schemas found in configuration file.\n");
+		exit(1);
+	}
+	int config_schemas = config_setting_length(conf_schemas);
+	printf("Number of schemas: %d\n", config_schemas);
+
+	int i;
+	for(i = 0; i < config_schemas; i++)
+	{
+		config_setting_t *current_element =	config_setting_get_elem(conf_schemas, i);
+		if (current_element == NULL)
+		{
+			continue;
+		}
+		struct login_settings schema_login;
+		schema_login.bundle_file = GetConfigString(current_element, "bundle_file");
+		schema_login.pointer = current_element;
+		printf("schemas[%d].bundle_file = %s\n", i, schema_login.bundle_file);
+
+		/*
+		* Loop through servers.
+		*/
+		config_setting_t *conf_servers = config_setting_lookup(current_element, "servers");
+		if (conf_servers == NULL)
+		{
+			fprintf(stdout, "No servers defined for schema %d.\n", i);
+			continue;
+		}
+		int config_servers = config_setting_length(conf_servers);
+		printf("Number of servers using schema %d: %d\n", i, config_servers);
+
+		int j;
+		for(j = 0; j < config_servers; j++)
+		{
+			config_setting_t *current_element2 = config_setting_get_elem(conf_servers, j);
+			if (current_element2 == NULL)
+			{
+				continue;
+			}
+
+			struct login_settings server_login;
+			memcpy(&server_login, &schema_login, sizeof(server_login));
+			server_login.pointer = current_element2;
+
+			config_setting_t *server_setting = NULL;
+
+			int server_setting_int = GetConfigBool(current_element2, "enabled");
+			if (server_setting_int == 0)
+			{
+				fprintf(stdout, "Server %d is not enabled.\n", j);
+				continue;
+			}
+			else if (server_setting_int > 0)
+			{
+				server_login.enabled = server_setting_int;
+				server_login.hostname = GetConfigString(current_element2, "hostname");
+				server_login.port = GetConfigInt(current_element2, "port");
+				printf("schemas[%d].servers[%d].enabled = %d\n", i, j, server_login.enabled);
+				printf("schemas[%d].servers[%d].hostname = %s\n", i, j, server_login.hostname);
+				printf("schemas[%d].servers[%d].port = %d\n", i, j, server_login.port);
+
+				server_setting_int = GetConfigBool(current_element2, "tls");
+				if (server_setting_int == 0)
+				{
+					fprintf(stdout, "Server %d is not configured for TLS. This program only supports TLS servers.\n", j);
+					continue;
+				}
+				else if (server_setting_int > 0)
+				{
+					server_login.tls = server_setting_int;
+					server_login.tls_ca_file = GetConfigString(current_element2, "tls_ca_file");
+					server_login.tls_ciphers = GetConfigString(current_element2, "tls_ciphers");
+					printf("schemas[%d].servers[%d].tls = %d\n", i, j, server_login.tls);
+					printf("schemas[%d].servers[%d].tls_ca_file = %s\n", i, j, server_login.tls_ca_file);
+					printf("schemas[%d].servers[%d].tls_ciphers = %s\n", i, j, server_login.tls_ciphers);
+				}
+
+				server_login.keep_alive = GetConfigInt(current_element2, "keep_alive");
+				server_login.xmlns = GetConfigString(current_element2, "xml.xmlns");
+				server_login.xmlns_xsi = GetConfigString(current_element2, "xml.xmlns-xsi");
+				server_login.xsi_schemaLocation = GetConfigString(current_element2, "xml.xsi-schemaLocation");
+
+				printf("schemas[%d].servers[%d].keep_alive = %d\n", i, j, server_login.keep_alive);
+				printf("schemas[%d].servers[%d].xml.xmlns = %s\n", i, j, server_login.xmlns);
+				printf("schemas[%d].servers[%d].xml.xmlns-xsi = %s\n", i, j, server_login.xmlns_xsi);
+				printf("schemas[%d].servers[%d].xml.xsi-schemaLocation = %s\n", i, j, server_login.xsi_schemaLocation);
+
+				/*
+				* Loop through logins.
+				*/
+				config_setting_t *conf_logins = config_setting_lookup(current_element2, "logins");
+				if (conf_logins == NULL)
+				{
+					fprintf(stdout, "No logins defined for server %d using schema %d\n", j, i);
+					continue;
+				}
+				int config_logins = config_setting_length(conf_logins);
+				printf("Number of logins for server %d using schema %d: %d\n", j, i, config_logins);
+
+				int k;
+				for(k = 0; k < config_logins; k++)
+				{
+					config_setting_t *current_element3 = config_setting_get_elem(conf_logins, k);
+					if (current_element3 == NULL)
+					{
+						continue;
+					}
+
+					struct login_settings login;
+					memcpy(&login, &server_login, sizeof(login));
+					login.pointer = current_element3;
+
+					login.bind_ipv4_mapped = GetConfigString(current_element3, "bind_ipv4_mapped");
+					login.bind_ipv6 = GetConfigString(current_element3, "bind_ipv6");
+					login.ipv4_only = GetConfigBool(current_element3, "ipv4_only");
+					login.ipv6_only = GetConfigBool(current_element3, "ipv6_only");
+
+					printf("schemas[%d].servers[%d].logins[%d].bind_ipv4_mapped = %s\n", i, j, k, login.bind_ipv4_mapped);
+					printf("schemas[%d].servers[%d].logins[%d].ipv4_only = %d\n", i, j, k, login.ipv4_only);
+					printf("schemas[%d].servers[%d].logins[%d].bind_ipv6 = %s\n", i, j, k, login.bind_ipv6);
+					printf("schemas[%d].servers[%d].logins[%d].ipv6_only = %d\n", i, j, k, login.ipv6_only);
+
+					login.clID = GetConfigString(current_element3, "clID");
+					login.pw = GetConfigString(current_element3, "pw");
+
+					login.version = GetConfigString(current_element3, "options.version");
+					login.lang = GetConfigString(current_element3, "options.lang");
+
+					printf("schemas[%d].servers[%d].logins[%d].clID = %s\n", i, j, k, login.clID);
+					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, login.pw);
+
+					/*
+					* Change login.pw and save to file.
+					//
+					login.pw = "newpassword";
+					config_setting_set_string(config_setting_lookup(login.pointer, "pw"), login.pw);
+					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, GetConfigString(current_element3, "pw"));
+					config_write_file(config, CONFIG_FILE);
+					//
+					*/
+
+					printf("schemas[%d].servers[%d].logins[%d].options.version = %s\n", i, j, k, login.version);
+					printf("schemas[%d].servers[%d].logins[%d].options.lang = %s\n", i, j, k, login.lang);
+					printf("Schema[%d] pointer: %d\n", i, schema_login.pointer);
+					printf("Schema[%d] -> Server[%d] pointer: %d\n", i, j, server_login.pointer);
+					printf("Schema[%d] -> Server[%d] -> Login[%d] pointer: %d\n", i, j, k, login.pointer);
+
+					/*
+					* Loop through objURLs.
+					*/
+					config_setting_t *conf_objURLs = config_setting_lookup(current_element3, "svcs.objURL");
+					if (conf_objURLs == NULL)
+					{
+						fprintf(stdout, "No objURLs defined for login %d on server %d using schema %d.\n", k, j, i);
+						continue;
+					}
+					int config_objURLs = config_setting_length(conf_objURLs);
+					printf("Number of objURLs for login %d on server %d using schema %d: %d\n", k, j, i, config_objURLs);
+
+					int l;
+					for(l = 0; l < config_objURLs; l++)
+					{
+						config_setting_t *current_element4 = config_setting_get_elem(conf_objURLs, l);
+						if (current_element4 == NULL)
+						{
+							continue;
+						}
+						login.objURL[l] = config_setting_get_string(current_element4);
+						printf("schemas[%d].servers[%d].logins[%d].svcs.objURL[%d] = %s\n", i, j, k, l, login.objURL[l]);
+					}
+				}
+			}
+		}
+	}
+
+	config_destroy(config);
+	return 0;
+}
+
+int main2(int argc, char **argv)
 {
 /* Handle command line parameters */
 	int c;
@@ -257,6 +492,63 @@ int main(int argc, char **argv)
 #endif
 
 	return 0;
+}
+
+/*
+* Function GetConfigInt looks up the integer value of 'name'
+*. in the configuration setting 'setting' and returns the integer.
+*  -1 is returned if 'name' does not exist.
+*/
+int GetConfigInt(config_setting_t *setting, char* name)
+{
+	config_setting_t *setting_pointer = NULL;
+	setting_pointer = config_setting_lookup(setting, name);
+	if (setting_pointer != NULL)
+	{
+		return config_setting_get_int(setting_pointer);
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+/*
+* Function GetConfigBool looks up the boolean value of 'name'
+*. in the configuration setting 'setting' and returns it as an integer.
+*  -1 is returned if 'name' does not exist.
+*/
+int GetConfigBool(config_setting_t *setting, char* name)
+{
+	config_setting_t *setting_pointer = NULL;
+	setting_pointer = config_setting_lookup(setting, name);
+	if (setting_pointer != NULL)
+	{
+		return config_setting_get_bool(setting_pointer);
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+/*
+* Function GetConfigString looks up the string value of 'name'
+*. in the configuration setting 'setting' and returns the string.
+*  NULL is returned if 'name' does not exist.
+*/
+const char* GetConfigString(config_setting_t *setting, char* name)
+{
+	config_setting_t *setting_pointer = NULL;
+	setting_pointer = config_setting_lookup(setting, name);
+	if (setting_pointer != NULL)
+	{
+		return config_setting_get_string(setting_pointer);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 /* function hostname_to_ip is a modified version of:
