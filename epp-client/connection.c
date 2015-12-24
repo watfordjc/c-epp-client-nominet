@@ -300,7 +300,7 @@ int hostname_to_ip(char *hostname, char *ip)
 			{
 				char * ipv4_mapping;
 				ipv4_mapping = "::ffff:";
-				char * ipv4_mapped = (char *) malloc(1 + strlen(ipv4_mapping) + strlen(ip));
+				char * ipv4_mapped = (char *) malloc(strlen(ipv4_mapping) + strlen(ip) + 1);
 				strcpy(ipv4_mapped, ipv4_mapping);
 				strcat(ipv4_mapped, ip);
 				strcpy(ip, ipv4_mapped);
