@@ -20,7 +20,7 @@
 #include <time.h>
 
 void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt);
-void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSchemaCtxt);
+void xml_parse(char *msg_data, uint32_t file_size, xmlSchemaValidCtxtPtr pSchemaCtxt);
 void GetclTRID(char *TAG, char *client, char *priority, char *registrantID, char *clTRID);
 
 void error(char *msg)
@@ -257,7 +257,7 @@ void established_connection(int sock, xmlSchemaValidCtxtPtr pSchemaCtxt)
 
 }
 
-void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSchemaCtxt)
+void xml_parse(char *msg_data, uint32_t file_size, xmlSchemaValidCtxtPtr pSchemaCtxt)
 {
 	char *log_directory = "/home/thejc/Scripts/epp/logs/";
 	char *log_file = log_directory;
@@ -268,7 +268,7 @@ void xml_parse(char *msg_data, uint32_t buffer_size, xmlSchemaValidCtxtPtr pSche
 
 	xmlKeepBlanksDefault(0);
 	xmlDocPtr doc = NULL;
-	doc = xmlReadMemory(msg_data, buffer_size, "noname.xml", NULL, 0);
+	doc = xmlReadMemory(msg_data, file_size, "noname.xml", NULL, 0);
 	if (doc == NULL)
 	{
 		error("xmlReadMemory");
