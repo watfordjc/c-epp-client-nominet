@@ -17,17 +17,26 @@
 /* libconfig */
 #include <libconfig.h>
 
-/* Connection Variables:
-	BIND_ADDR: Local IPv4 IP address formatted as IPv4-mapped-IPv6 (e.g. ::ffff:127.0.0.1).
-	BIND_ADDR6: Local IPv6 IP address.
-	EPP_HOSTNAME: string for EPP Server's IP address or hostname.
-	EPP_TLS_PORT: string for EPP Server's TLS port.
-	EPP_TLS_CAFILE: string for full path to EPP Server's Root CA file.
-	EPP_TLS_CIPHERS: string for cipher list - enabled and disabled ciphers (GnuTLS format).
-	MSG: string sent to server on successful connection.
-	LOG_LEVEL: integer between 0 and 9 for setting GnuTLS log level.
-	COMMENTS: build with -DCOMMENTS to enable more verbose commenting for debugging purposes.
+/*
+* Build (Debian Jessie):
+*	* gcc -o connection connection.c -lgnutls -lconfig
+* Build (Debian Jessie) with more verbose comments in output:
+*	* gcc -o connection connection.c -lgnutls -lconfig -DCOMMENTS
 */
+
+/*
+* Connection Variables:
+*	* BIND_ADDR: Local IPv4 IP address formatted as IPv4-mapped-IPv6 (e.g. ::ffff:127.0.0.1).
+*	* BIND_ADDR6: Local IPv6 IP address.
+*	* EPP_HOSTNAME: string for EPP Server's IP address or hostname.
+*	* EPP_TLS_PORT: string for EPP Server's TLS port.
+*	* EPP_TLS_CAFILE: string for full path to EPP Server's Root CA file.
+*	* EPP_TLS_CIPHERS: string for cipher list - enabled and disabled ciphers (GnuTLS format).
+*	* MSG: string sent to server on successful connection.
+*	* LOG_LEVEL: integer between 0 and 9 for setting GnuTLS log level.
+*	* COMMENTS: build with -DCOMMENTS to enable more verbose commenting for debugging purposes.
+*/
+
 char *BIND_ADDR = "::ffff:82.26.77.204";
 char *BIND_ADDR6 = "2001:470:1f09:1aab::80:d";
 char *EPP_HOSTNAME = "webmail.thejc.me.uk";
@@ -236,12 +245,12 @@ int main(int argc, char **argv)
 
 					/*
 					* Change login.pw and save to file.
-					//
+					*/
+					/*
 					login.pw = "newpassword";
 					config_setting_set_string(config_setting_lookup(login.pointer, "pw"), login.pw);
 					printf("schemas[%d].servers[%d].logins[%d].pw = %s\n", i, j, k, get_config_string(current_element3, "pw"));
 					config_write_file(config, CONFIG_FILE);
-					//
 					*/
 
 					printf("schemas[%d].servers[%d].logins[%d].options.version = %s\n", i, j, k, login.version);
@@ -288,8 +297,12 @@ int main2(int argc, char **argv)
 	int c;
 	while (1)
 	{
-		/* Values returned are char, so start at 1001 for long options without short equivalent so they don't interfere with short options (e.g. 'z' = 122). */
-		/* If a decision is made to later add a short option, change the number in the array and the case statement for that option (e.g. replacing 1008 with '4'. */
+		/*
+		* Values returned are char, so start at 1001 for long options without short
+		*  equivalent so they don't interfere with short options (e.g. 'z' = 122).
+		* If a decision is made to later add a short option, change the number in
+		*  the array and the case statement for that option (e.g. replacing 1008 with '4'.
+		*/
 		static struct option long_options[] =
 		{
 			{"gnutls_log_level", required_argument, 0, 1001},
@@ -497,8 +510,8 @@ int main2(int argc, char **argv)
 
 /*
 * Function get_config_int looks up the integer value of 'name'
-*. in the configuration setting 'setting' and returns the integer.
-*  -1 is returned if 'name' does not exist.
+*  in the configuration setting 'setting' and returns the integer.
+* -1 is returned if 'name' does not exist.
 */
 int get_config_int(config_setting_t *setting, char* name)
 {
@@ -516,8 +529,8 @@ int get_config_int(config_setting_t *setting, char* name)
 
 /*
 * Function get_config_bool looks up the boolean value of 'name'
-*. in the configuration setting 'setting' and returns it as an integer.
-*  -1 is returned if 'name' does not exist.
+*  in the configuration setting 'setting' and returns it as an integer.
+* -1 is returned if 'name' does not exist.
 */
 int get_config_bool(config_setting_t *setting, char* name)
 {
@@ -535,8 +548,8 @@ int get_config_bool(config_setting_t *setting, char* name)
 
 /*
 * Function get_config_string looks up the string value of 'name'
-*. in the configuration setting 'setting' and returns the string.
-*  NULL is returned if 'name' does not exist.
+*  in the configuration setting 'setting' and returns the string.
+* NULL is returned if 'name' does not exist.
 */
 const char* get_config_string(config_setting_t *setting, char* name)
 {
@@ -552,13 +565,14 @@ const char* get_config_string(config_setting_t *setting, char* name)
 	}
 }
 
-/* function get_ip_from_hostname is a modified version of:
-	https://gist.github.com/twslankard/1001201
-	IPv6 support added, but no preference given.
-	First A/AAAA IP address listed by DNS resolver will be used.
-	Variables:
-	ipv4off: set to 1 to disable the return of an IPv4 address.
-	ipv6off: set to 1 to disable the return of an IPv6 address.
+/*
+* function get_ip_from_hostname is a modified version of:
+*  https://gist.github.com/twslankard/1001201
+*	* IPv6 support added, but no preference given.
+*	* First A/AAAA IP address listed by DNS resolver will be used.
+* Variables:
+*	* ipv4off: set to 1 to disable the return of an IPv4 address.
+*	* ipv6off: set to 1 to disable the return of an IPv6 address.
 */
 int get_ip_from_hostname(char *hostname, char *ip)
 {
