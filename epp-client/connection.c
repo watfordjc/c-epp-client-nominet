@@ -70,7 +70,8 @@ int get_config_int(config_setting_t *setting, char* name);
 int get_config_bool(config_setting_t *setting, char* name);
 const char* get_config_string(config_setting_t *setting, char* name);
 
-config_t conf, *config;
+config_t conf;
+config_t *config;
 
 char *CONFIG_FILE = "/home/thejc/Scripts/epp/epp-client/epp.config";
 
