@@ -98,10 +98,12 @@ int tls_connection(struct login_settings login);
 int make_one_connection(struct login_settings login, const char *address, int port);
 int get_ip_from_hostname(struct login_settings login, char *, char *);
 int verify_cert(struct gnutls_session_int *);
+int write_epp_message(gnutls_session_t session, char *message);
+char *get_epp_message(gnutls_session_t session);
 
 void schemas_iterate();
 void servers_iterate(int schemaInt, struct login_settings schema_login, struct config_setting_t *schema_element);
-void logins_iterate(int schemaInt, struct login_settings schema_login, struct config_setting_t *schema_element, int serverInt, struct login_settings server_login, struct config_setting_t *server_element);
+void logins_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings server_login, struct config_setting_t *server_element);
 
 int main(int argc, char **argv)
 {
@@ -229,7 +231,7 @@ void schemas_iterate(struct login_settings *logins[], int *logins_count, int max
 		{
 			continue;
 		}
-		struct login_settings schema_login;
+		struct login_settings schema_login = {0};
 		schema_login.bundle_file = get_config_string(schema_element, "bundle_file");
 		schema_login.pointer = schema_element;
 #ifdef COMMENTS
@@ -285,7 +287,7 @@ void servers_iterate(int schemaInt, struct login_settings schema_login, struct c
 #ifdef COMMENTS
 			printf("schemas[%d].servers[%d].enabled = %d\n", schemaInt, serverInt, server_login.enabled);
 			printf("schemas[%d].servers[%d].hostname = %s\n", schemaInt, serverInt, server_login.hostname);
-			printf("schemas[%d].servers[%d].port = %d\n", schemaInt, serverInt, server_login.port);
+			printf("schemas[%d].servers[%d].port = %s\n", schemaInt, serverInt, server_login.port);
 #endif
 
 			server_setting_int = get_config_bool(server_element, "tls");
@@ -317,12 +319,12 @@ void servers_iterate(int schemaInt, struct login_settings schema_login, struct c
 			printf("schemas[%d].servers[%d].xml.xmlns-xsi = %s\n", schemaInt, serverInt, server_login.xmlns_xsi);
 			printf("schemas[%d].servers[%d].xml.xsi-schemaLocation = %s\n", schemaInt, serverInt, server_login.xsi_schemaLocation);
 #endif
-			logins_iterate(schemaInt, schema_login, schema_element, serverInt, server_login, server_element);
+			logins_iterate(schemaInt, schema_login, serverInt, server_login, server_element);
 		}
 	}
 }
 
-void logins_iterate(int schemaInt, struct login_settings schema_login, struct config_setting_t *schema_element, int serverInt, struct login_settings server_login, struct config_setting_t *server_element)
+void logins_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings server_login, struct config_setting_t *server_element)
 {
 	/*
 	* Loop through logins.
@@ -403,6 +405,7 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, struct co
 		if (conf_objURIs == NULL)
 		{
 			fprintf(stdout, "No objURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
+			loginPtr->objURIs = 0;
 		}
 		else
 		{
@@ -484,10 +487,27 @@ void close_connection(struct login_settings login)
 	int *connfdPtr = login.connectionPtr;
 	int connfd = *connfdPtr;
 
-	char logoutString[4096];
-	int n = sprintf(logoutString, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<epp xmlns=\"%s\" xmlns:xsi=\"%s\" xsi:schemaLocation=\"%s\">\n\t<command>\n\t\t<logout />\n\t</command>\n</epp>\n", login.xmlns, login.xmlns_xsi, login.xsi_schemaLocation);
+	char *logoutString = calloc(4096, sizeof(char));
+	sprintf(logoutString, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<epp xmlns=\"%s\" xmlns:xsi=\"%s\" xsi:schemaLocation=\"%s\">\n\t<command>\n\t\t<logout />\n\t</command>\n</epp>\n", login.xmlns, login.xmlns_xsi, login.xsi_schemaLocation);
+#ifdef COMMENTS
+	printf("∨∨∨---From Client---∨∨∨\n");
 	printf("%s\n",logoutString);
-	gnutls_record_send(session, logoutString, strlen(logoutString));
+#endif
+	write_epp_message(session, logoutString);
+	free(logoutString);
+#ifdef COMMENTS
+	printf("∧∧∧---From Client---∧∧∧\n");
+#endif
+
+#ifdef COMMENTS
+	printf("∨∨∨---From Server---∨∨∨\n");
+#endif
+	char *messagePtr = get_epp_message(session);
+#ifdef COMMENTS
+	printf("%s\n", messagePtr);
+	printf("∧∧∧---From Server---∧∧∧\n");
+#endif
+	free(messagePtr);
 
 	gnutls_bye(session, GNUTLS_SHUT_RDWR);
 	gnutls_deinit(session);
@@ -538,6 +558,7 @@ int tls_connection(struct login_settings login)
 	}
 
 	gnutls_session_set_ptr(session, (void *) login.hostname);
+	login.gnutls_sessionPtr = &session;
 	gnutls_server_name_set(session, GNUTLS_NAME_DNS, login.hostname, strlen(login.hostname));
 
 	const char *error = NULL;
@@ -591,43 +612,42 @@ int tls_connection(struct login_settings login)
 		exit(1);
 	}
 
+	char *greetingPtr = get_epp_message(session);
+#ifdef COMMENTS
+	printf("∨∨∨---From Server---∨∨∨\n");
+	printf("%s\n", greetingPtr);
+#endif
+	free(greetingPtr);
+#ifdef COMMENTS
+	printf("\n∧∧∧---From Server---∧∧∧\n");
+#endif
 
 #ifdef COMMENTS
 	printf("∨∨∨---From Client---∨∨∨\n");
-#endif
 	printf("%s\n",loginString);
-	gnutls_record_send(session, loginString, strlen(loginString));
-#ifdef COMMENTS
-	printf("∧∧∧---From Client---∧∧∧\n");
-
-	printf("∨∨∨---From Server---∨∨∨\n");
 #endif
-	char buf[256];
-	res = gnutls_record_recv(session, buf, sizeof(buf));
-	while (res != 0)
+	res = write_epp_message(session, loginString);
+	free(loginString);
+	if (res < 0)
 	{
-		if (res == GNUTLS_E_REHANDSHAKE)
-		{
-			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
-			error_exit("Peer wants to re-handshake but we don't support that.\n");
-		}
-		else if (gnutls_error_is_fatal(res))
-		{
-			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
-			error_exit("Fatal error during read.\n");
-		}
-		else if (res > 0)
-		{
-			fwrite(buf, 1, res, stdout);
-			fflush(stdout);
-		}
-		res = gnutls_record_recv(session, buf, sizeof(buf));
+		fprintf(stderr, "Failed to send login command.\n");
+		exit(1);
 	}
 #ifdef COMMENTS
-	printf("∧∧∧---From Server---∧∧∧\n");
+	printf("∧∧∧---From Client---∧∧∧\n");
 #endif
 
-		close_connection(login);
+	char *messagePtr = get_epp_message(session);
+#ifdef COMMENTS
+	printf("∨∨∨---From Server---∨∨∨\n");
+	printf("%s\n", messagePtr);
+#endif
+	free(messagePtr);
+#ifdef COMMENTS
+	printf("\n∧∧∧---From Server---∧∧∧\n");
+#endif
+
+	close_connection(login);
 
 #ifdef COMMENTS
 	printf("All done!\n");
@@ -788,6 +808,7 @@ int get_ip_from_hostname(struct login_settings login, char *hostname, char *ip)
 				strcpy(ip, ipv4_mapped);
 				free(ipv4_mapped);
 				ip_found = 1;
+				freeaddrinfo(_addrinfo);
 				return 0;
 			}
 		}
@@ -801,6 +822,7 @@ int get_ip_from_hostname(struct login_settings login, char *hostname, char *ip)
 			else
 			{
 				ip_found = 1;
+				freeaddrinfo(_addrinfo);
 				return 0;
 			}
 		}
@@ -818,6 +840,7 @@ int get_ip_from_hostname(struct login_settings login, char *hostname, char *ip)
 			fprintf(stderr, "Hostname %s only has IPv4 IP address(es).\n", login.hostname);
 			fprintf(stderr, "Unable to connect due to running in IPv6-only mode.\n");
 		}
+		freeaddrinfo(_addrinfo);
 		exit(1);
 	}
 
@@ -868,7 +891,7 @@ int make_one_connection(struct login_settings login, const char *ip, int port)
 	{
 		local_bind_address = (void *) login.bind_ipv4_mapped;
 	}
-	struct sockaddr_in6 local_addr;
+	struct sockaddr_in6 local_addr = {0};
 	if (connfd < 0)
 	{
 		error_exit("socket() failed.\n");
@@ -883,7 +906,7 @@ int make_one_connection(struct login_settings login, const char *ip, int port)
 		exit(1);
 	}
 
-	struct sockaddr_in6 serv_addr;
+	struct sockaddr_in6 serv_addr = {0};
 	if (connfd < 0)
 	{
 		error_exit("socket() failed.\n");
@@ -949,4 +972,224 @@ int verify_cert(gnutls_session_t session)
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 	return 0;
+}
+
+/*
+* Function write_epp_message() converts the length of 'message'
+*  to an EPP header, and then sends the EPP header and message
+*  to 'session'.
+*/
+int write_epp_message(gnutls_session_t session, char *message)
+{
+	uint32_t buffer_size = 256;
+	uint32_t header_size = 4;
+	uint32_t buffer_size_chars = buffer_size - 1;
+	uint32_t msg_data_length = strlen(message);
+	uint32_t position = 0;
+	uint32_t remaining_chars = 0;
+	int n = 0;
+	int res = 0;
+
+	union {
+		uint32_t whole;
+		char bytes[header_size];
+	} msg_length;
+
+	msg_length.whole = msg_data_length + header_size;
+	if (msg_length.whole < header_size)
+	{
+		fprintf(stderr, "Error: Data length less than header size.\n");
+		return -1;
+	}
+	msg_length.whole = htonl(msg_length.whole);
+
+	while (n < header_size)
+	{
+		res = gnutls_record_send(session, msg_length.bytes + n, header_size - n);
+		if (res == GNUTLS_E_REHANDSHAKE)
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Peer wants to re-handshake but we don't support that.\n");
+		}
+		else if (gnutls_error_is_fatal(res))
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Fatal error during read.\n");
+		}
+		else if (res > 0)
+		{
+			n = n + res;
+		}
+	}
+
+	if (n != header_size)
+	{
+		error_exit("Unexpected error occured in write_epp_message().\n");
+	}
+
+	remaining_chars = msg_data_length;
+#ifdef COMMENTS
+	printf("Message is %d bytes long.\n", msg_data_length);
+#endif
+
+	/*
+	* Loop until position equals msg_data_length.
+	*/
+	while (position < msg_data_length)
+	{
+		remaining_chars = msg_data_length - position;
+		int write_chars;
+
+		/*
+		* Set read_chars to lower of buffer_size_chars and remaining_chars.
+		*/
+		if (remaining_chars > buffer_size_chars)
+		{
+			write_chars = buffer_size_chars;
+		}
+		else if (remaining_chars > 0)
+		{
+			write_chars = remaining_chars;
+		}
+
+		res = gnutls_record_send(session, message + position, write_chars);
+		if (res == GNUTLS_E_REHANDSHAKE)
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Peer wants to re-handshake but we don't support that.\n");
+		}
+		else if (gnutls_error_is_fatal(res))
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Fatal error during read.\n");
+		}
+		else if (res > 0)
+		{
+			position = position + res;
+		}
+	}
+#ifdef COMMENTS
+	printf("Wrote %d bytes.\n", position);
+#endif
+	return 0;
+}
+
+/*
+* Function get_epp_message() reads from 'session' the EPP header,
+*  and then reads the EPP data into a character array.
+* Returns a pointer to the character array containing the EPP data.
+*/
+char *get_epp_message(gnutls_session_t session)
+{
+	uint32_t buffer_size = 256;
+	uint32_t header_size = 4;
+	uint32_t buffer_size_chars = buffer_size - 1;
+	uint32_t msg_data_length = 0;
+	uint32_t position = 0;
+	uint32_t remaining_chars = 0;
+	int n = 0;
+	int res = 0;
+	char buffer[buffer_size];
+
+	union {
+		uint32_t whole;
+		char bytes[header_size];
+	} msg_length;
+
+	bzero((char *) buffer, buffer_size);
+
+	while (n < header_size)
+	{
+		res = gnutls_record_recv(session, buffer + n, header_size - n);
+		if (res == GNUTLS_E_REHANDSHAKE)
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Peer wants to re-handshake but we don't support that.\n");
+		}
+		else if (gnutls_error_is_fatal(res))
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Fatal error during write.\n");
+		}
+		else if (res > 0)
+		{
+			n = n + res;
+		}
+	}
+
+	if (n != header_size)
+	{
+		error_exit("Unexpected error occured in get_epp_message().\n");
+	}
+
+	memcpy(msg_length.bytes, buffer, header_size);
+	msg_length.whole = ntohl(msg_length.whole);
+	if (msg_length.whole < header_size)
+	{
+		fprintf(stderr, "Error: Data length less than header size.\n");
+		bzero((char *) buffer, buffer_size);
+		char *bufferPtr;
+		bufferPtr = buffer;
+		return bufferPtr;
+	}
+	msg_data_length = msg_length.whole - header_size;
+	remaining_chars = msg_data_length;
+#ifdef COMMENTS
+	printf("Message is %d bytes long.\n", msg_data_length);
+#endif
+
+	/*
+	* Make msg_data large enough to hold entire message.
+	*/
+	char *msg_data = calloc(msg_data_length + 1, sizeof(char));
+
+	/*
+	* Loop until position equals msg_data_length.
+	*/
+	while (position < msg_data_length)
+	{
+		remaining_chars = msg_data_length - position;
+		int read_chars;
+		bzero((char *) buffer, buffer_size);
+
+		/*
+		* Set read_chars to lower of buffer_size_chars and remaining_chars.
+		*/
+		if (remaining_chars > buffer_size_chars)
+		{
+			read_chars = buffer_size_chars;
+		}
+		else if (remaining_chars > 0)
+		{
+			read_chars = remaining_chars;
+		}
+
+		res = gnutls_record_recv(session, buffer, read_chars);
+		if (res == GNUTLS_E_REHANDSHAKE)
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Peer wants to re-handshake but we don't support that.\n");
+		}
+		else if (gnutls_error_is_fatal(res))
+		{
+			fprintf(stderr, "Error code %d: %s\n",res,gnutls_strerror(res));
+			error_exit("Fatal error during read.\n");
+		}
+		else if (res > 0)
+		{
+			memcpy(msg_data + position, buffer, res);
+			position = position + res;
+			char *end_of_root = NULL;
+			end_of_root = strstr(msg_data, "</epp>");
+			if (end_of_root != NULL)
+			{
+				msg_data_length = end_of_root + 6 - msg_data;
+			}
+		}
+	}
+	bzero((char *) msg_data + msg_data_length, 1);
+#ifdef COMMENTS
+	printf("Read %d bytes.\n", position);
+#endif
+	return msg_data;
 }
