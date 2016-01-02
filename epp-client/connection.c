@@ -37,9 +37,9 @@ int LOG_LEVEL = 0;
 char *CONFIG_FILE = "";
 
 // Set a maximum number of logins.
-int max_logins = 1;
-// Create *logins[] - a fixed size array of 1 pointer.
-struct login_settings *logins[1];
+int max_logins = 2;
+// Create *logins[] - a fixed size array of 2 pointers.
+struct login_settings *logins[2];
 // logins_iterate() will increase logins_count after each login is parsed.
 int logins_count = 0;
 
@@ -485,7 +485,6 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, int serve
 		{
 			fprintf(stderr, "Compiled with only %d maximum logins, configuration file contains at least %d.\n", max_logins, logins_count+1);
 			fprintf(stderr, "Please modify 'int max_logins = %d' in source code and recompile.\n", max_logins);
-			fprintf(stderr, "NOTE: Program currently only supports 1 schema, 1 server, and 1 login.\n");
 			config_destroy(config);
 			exit(1);
 		}
