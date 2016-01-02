@@ -51,6 +51,7 @@ struct login_settings
 	int keep_alive;
 	int tls;
 	int objURIs;
+	int extURIs;
 	int *connectionPtr;
 	gnutls_session_t *gnutls_sessionPtr;
 	gnutls_certificate_credentials_t x509_cred;
@@ -69,7 +70,8 @@ struct login_settings
 	const char *xmlns;
 	const char *xmlns_xsi;
 	const char *xsi_schemaLocation;
-	const char *objURI[21];
+	const char *objURI[3];
+	const char *extURI[19];
 };
 
 struct config_t conf;
@@ -414,9 +416,9 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, int serve
 			printf("Number of objURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_objURIs);
 #endif
 
-			if (config_objURIs > 21)
+			if (config_objURIs > 3)
 			{
-				fprintf(stderr, "Maximum objURIs hard-coded to %d but there are %d objURIs for schema[%d].server[%d].login[%d].\n", 21, config_objURIs, loginInt, serverInt, schemaInt);
+				fprintf(stderr, "Maximum objURIs hard-coded to %d but there are %d objURIs for schema[%d].server[%d].login[%d].\n", 3, config_objURIs, loginInt, serverInt, schemaInt);
 				exit(1);
 			}
 			loginPtr->objURIs = config_objURIs;
@@ -432,6 +434,44 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, int serve
 				loginPtr->objURI[l] = config_setting_get_string(objURI_element);
 #ifdef COMMENTS
 				printf("schemas[%d].servers[%d].logins[%d].svcs.objURI[%d] = %s\n", schemaInt, serverInt, loginInt, l, loginPtr->objURI[l]);
+#endif
+			}
+		}
+
+		/*
+		* Loop through extURIs.
+		*/
+		struct config_setting_t *conf_extURIs = config_setting_lookup(login_element, "svcs.extURI");
+		if (conf_extURIs == NULL)
+		{
+			fprintf(stdout, "No extURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
+			loginPtr->extURIs = 0;
+		}
+		else
+		{
+			int config_extURIs = config_setting_length(conf_extURIs);
+#ifdef COMMENTS
+			printf("Number of extURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_extURIs);
+#endif
+
+			if (config_extURIs > 19)
+			{
+				fprintf(stderr, "Maximum extURIs hard-coded to %d but there are %d extURIs for schema[%d].server[%d].login[%d].\n", 19, config_extURIs, loginInt, serverInt, schemaInt);
+				exit(1);
+			}
+			loginPtr->extURIs = config_extURIs;
+
+			int l;
+			for(l = 0; l < config_extURIs; l++)
+			{
+				struct config_setting_t *extURI_element = config_setting_get_elem(conf_extURIs, l);
+				if (extURI_element == NULL)
+				{
+					continue;
+				}
+				loginPtr->extURI[l] = config_setting_get_string(extURI_element);
+#ifdef COMMENTS
+				printf("schemas[%d].servers[%d].logins[%d].svcs.extURI[%d] = %s\n", schemaInt, serverInt, loginInt, l, loginPtr->extURI[l]);
 #endif
 			}
 		}
@@ -572,24 +612,45 @@ int tls_connection(struct login_settings login)
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, x509_cred);
 
-
 	char *hostname = (void *) login.hostname;
 	char ip[INET6_ADDRSTRLEN];
 	get_ip_from_hostname(login, hostname, ip);
 #ifdef COMMENTS
 	printf("%s resolved to %s\n", hostname, ip);
-	char loginString[4096];
-	int n = sprintf(loginString, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<epp xmlns=\"%s\" xmlns:xsi=\"%s\" xsi:schemaLocation=\"%s\">\n\t<command>\n\t\t<login>\n\t\t\t<clID>%s</clID>\n\t\t\t<pw>%s</pw>\n\t\t\t<options>\n\t\t\t\t<version>%s</version>\n\t\t\t\t<lang>%s</lang>\n\t\t\t</options>\n\t\t\t<svcs>\n", login.xmlns, login.xmlns_xsi, login.xsi_schemaLocation, login.clID, login.pw, login.version, login.lang);
-	int i;
-	for (i = 0; i < login.objURIs; i++)
-	{
-		char objURI[1024];
-		int o = sprintf(objURI, "\t\t\t\t<objURI>%s</objURI>\n", login.objURI[i]);
-		n = n+o;
-		strcat(loginString, objURI);
-	}
-	strcat(loginString, "\t\t\t</svcs>\n\t\t</login>\n\t</command>\n</epp>\n");
 #endif
+
+	char *loginString = calloc(4096 + (1024 * login.objURIs) + (1024 * login.extURIs), sizeof(char));
+	sprintf(loginString, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<epp xmlns=\"%s\" xmlns:xsi=\"%s\" xsi:schemaLocation=\"%s\">\n\t<command>\n\t\t<login>\n\t\t\t<clID>%s</clID>\n\t\t\t<pw>%s</pw>\n\t\t\t<options>\n\t\t\t\t<version>%s</version>\n\t\t\t\t<lang>%s</lang>\n\t\t\t</options>\n", login.xmlns, login.xmlns_xsi, login.xsi_schemaLocation, login.clID, login.pw, login.version, login.lang);
+	if (login.objURIs > 0 || login.extURIs > 0)
+	{
+		strcat(loginString, "\t\t\t<svcs>\n");
+		if (login.objURIs > 0)
+		{
+			int i;
+			for (i = 0; i < login.objURIs; i++)
+			{
+				char *objURI = calloc(1024, sizeof(char));
+				sprintf(objURI, "\t\t\t\t<objURI>%s</objURI>\n", login.objURI[i]);
+				strcat(loginString, objURI);
+				free(objURI);
+			}
+		}
+		if (login.extURIs > 0)
+		{
+			strcat(loginString, "\t\t\t\t<svcExtension>\n");
+			int j;
+			for (j = 0; j < login.extURIs; j++)
+			{
+				char *extURI = calloc(1024, sizeof(char));
+				sprintf(extURI, "\t\t\t\t\t<extURI>%s</extURI>\n", login.extURI[j]);
+				strcat(loginString, extURI);
+				free(extURI);
+			}
+			strcat(loginString, "\t\t\t\t</svcExtension>\n");
+		}
+		strcat(loginString, "\t\t\t</svcs>\n");
+	}
+	strcat(loginString, "\t\t</login>\n\t</command>\n</epp>\n");
 
 	int connfd = make_one_connection(login, ip, atoi(login.port));
 
