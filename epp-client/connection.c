@@ -16,14 +16,19 @@
 #include <gnutls/x509.h>
 /* libconfig */
 #include <libconfig.h>
+/* XML Libraries */
+#include <libxml/tree.h>
+#include <libxml/parser.h>
+#include <libxml/xmlreader.h>
+#include <libxml/xmlmemory.h>
 
 #define config_setting_lookup config_lookup_from
 
 /*
 * Build (Debian Jessie):
-*	* gcc -o connection connection.c -lgnutls -lconfig
+*	* gcc -o connection `xml2-config --cflags` connection.c -lgnutls -lconfig `xml2-config --libs`
 * Build (Debian Jessie) with more verbose comments in output:
-*	* gcc -o connection connection.c -lgnutls -lconfig -DCOMMENTS
+*	* gcc -o connection `xml2-config --cflags` connection.c -lgnutls -lconfig `xml2-config --libs` -DCOMMENTS
 */
 
 /*
