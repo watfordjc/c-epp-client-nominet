@@ -106,6 +106,8 @@ char *get_epp_message(gnutls_session_t session);
 void schemas_iterate();
 void servers_iterate(int schemaInt, struct login_settings schema_login, struct config_setting_t *schema_element);
 void logins_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings server_login, struct config_setting_t *server_element);
+void objURIs_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings *loginPtr, int loginInt, struct config_setting_t *login_element);
+void extURIs_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings *loginPtr, int loginInt, struct config_setting_t *login_element);
 
 int main(int argc, char **argv)
 {
@@ -400,81 +402,8 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, int serve
 		printf("Schema[%d] -> Server[%d] -> Login[%d] pointer: %p\n", schemaInt, serverInt, loginInt, loginPtr->pointer);
 #endif
 
-		/*
-		* Loop through objURIs.
-		*/
-		struct config_setting_t *conf_objURIs = config_setting_lookup(login_element, "svcs.objURI");
-		if (conf_objURIs == NULL)
-		{
-			fprintf(stdout, "No objURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
-			loginPtr->objURIs = 0;
-		}
-		else
-		{
-			int config_objURIs = config_setting_length(conf_objURIs);
-#ifdef COMMENTS
-			printf("Number of objURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_objURIs);
-#endif
-
-			if (config_objURIs > 3)
-			{
-				fprintf(stderr, "Maximum objURIs hard-coded to %d but there are %d objURIs for schema[%d].server[%d].login[%d].\n", 3, config_objURIs, loginInt, serverInt, schemaInt);
-				exit(1);
-			}
-			loginPtr->objURIs = config_objURIs;
-
-			int l;
-			for(l = 0; l < config_objURIs; l++)
-			{
-				struct config_setting_t *objURI_element = config_setting_get_elem(conf_objURIs, l);
-				if (objURI_element == NULL)
-				{
-					continue;
-				}
-				loginPtr->objURI[l] = config_setting_get_string(objURI_element);
-#ifdef COMMENTS
-				printf("schemas[%d].servers[%d].logins[%d].svcs.objURI[%d] = %s\n", schemaInt, serverInt, loginInt, l, loginPtr->objURI[l]);
-#endif
-			}
-		}
-
-		/*
-		* Loop through extURIs.
-		*/
-		struct config_setting_t *conf_extURIs = config_setting_lookup(login_element, "svcs.extURI");
-		if (conf_extURIs == NULL)
-		{
-			fprintf(stdout, "No extURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
-			loginPtr->extURIs = 0;
-		}
-		else
-		{
-			int config_extURIs = config_setting_length(conf_extURIs);
-#ifdef COMMENTS
-			printf("Number of extURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_extURIs);
-#endif
-
-			if (config_extURIs > 19)
-			{
-				fprintf(stderr, "Maximum extURIs hard-coded to %d but there are %d extURIs for schema[%d].server[%d].login[%d].\n", 19, config_extURIs, loginInt, serverInt, schemaInt);
-				exit(1);
-			}
-			loginPtr->extURIs = config_extURIs;
-
-			int l;
-			for(l = 0; l < config_extURIs; l++)
-			{
-				struct config_setting_t *extURI_element = config_setting_get_elem(conf_extURIs, l);
-				if (extURI_element == NULL)
-				{
-					continue;
-				}
-				loginPtr->extURI[l] = config_setting_get_string(extURI_element);
-#ifdef COMMENTS
-				printf("schemas[%d].servers[%d].logins[%d].svcs.extURI[%d] = %s\n", schemaInt, serverInt, loginInt, l, loginPtr->extURI[l]);
-#endif
-			}
-		}
+		objURIs_iterate(schemaInt, schema_login, serverInt, loginPtr, loginInt, login_element);
+		extURIs_iterate(schemaInt, schema_login, serverInt, loginPtr, loginInt, login_element);
 
 		if (logins_count < max_logins)
 		{
@@ -487,6 +416,88 @@ void logins_iterate(int schemaInt, struct login_settings schema_login, int serve
 			fprintf(stderr, "Please modify 'int max_logins = %d' in source code and recompile.\n", max_logins);
 			config_destroy(config);
 			exit(1);
+		}
+	}
+}
+
+void objURIs_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings *loginPtr, int loginInt, struct config_setting_t *login_element)
+{
+	/*
+	* Loop through objURIs.
+	*/
+	struct config_setting_t *conf_objURIs = config_setting_lookup(login_element, "svcs.objURI");
+	if (conf_objURIs == NULL)
+	{
+		fprintf(stdout, "No objURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
+		loginPtr->objURIs = 0;
+	}
+	else
+	{
+		int config_objURIs = config_setting_length(conf_objURIs);
+#ifdef COMMENTS
+		printf("Number of objURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_objURIs);
+#endif
+
+		if (config_objURIs > 3)
+		{
+			fprintf(stderr, "Maximum objURIs hard-coded to %d but there are %d objURIs for schema[%d].server[%d].login[%d].\n", 3, config_objURIs, loginInt, serverInt, schemaInt);
+			exit(1);
+		}
+		loginPtr->objURIs = config_objURIs;
+
+		int i;
+		for(i = 0; i < config_objURIs; i++)
+		{
+			struct config_setting_t *objURI_element = config_setting_get_elem(conf_objURIs, i);
+			if (objURI_element == NULL)
+			{
+				continue;
+			}
+			loginPtr->objURI[i] = config_setting_get_string(objURI_element);
+#ifdef COMMENTS
+			printf("schemas[%d].servers[%d].logins[%d].svcs.objURI[%d] = %s\n", schemaInt, serverInt, loginInt, i, loginPtr->objURI[i]);
+#endif
+		}
+	}
+}
+
+void extURIs_iterate(int schemaInt, struct login_settings schema_login, int serverInt, struct login_settings *loginPtr, int loginInt, struct config_setting_t *login_element)
+{
+	/*
+	* Loop through extURIs.
+	*/
+	struct config_setting_t *conf_extURIs = config_setting_lookup(login_element, "svcs.extURI");
+	if (conf_extURIs == NULL)
+	{
+		fprintf(stdout, "No extURIs defined for login %d on server %d using schema %d.\n", loginInt, serverInt, schemaInt);
+		loginPtr->extURIs = 0;
+	}
+	else
+	{
+		int config_extURIs = config_setting_length(conf_extURIs);
+#ifdef COMMENTS
+		printf("Number of extURIs for login %d on server %d using schema %d: %d\n", loginInt, serverInt, schemaInt, config_extURIs);
+#endif
+
+		if (config_extURIs > 19)
+		{
+			fprintf(stderr, "Maximum extURIs hard-coded to %d but there are %d extURIs for schema[%d].server[%d].login[%d].\n", 19, config_extURIs, loginInt, serverInt, schemaInt);
+			exit(1);
+		}
+		loginPtr->extURIs = config_extURIs;
+
+		int i;
+		for(i = 0; i < config_extURIs; i++)
+		{
+			struct config_setting_t *extURI_element = config_setting_get_elem(conf_extURIs, i);
+			if (extURI_element == NULL)
+			{
+				continue;
+			}
+			loginPtr->extURI[i] = config_setting_get_string(extURI_element);
+#ifdef COMMENTS
+			printf("schemas[%d].servers[%d].logins[%d].svcs.extURI[%d] = %s\n", schemaInt, serverInt, loginInt, i, loginPtr->extURI[i]);
+#endif
 		}
 	}
 }
